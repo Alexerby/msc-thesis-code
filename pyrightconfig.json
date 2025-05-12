@@ -1,0 +1,7 @@
+{
+  "typeCheckingMode": "basic",
+  "reportMissingImports": false,
+  "reportCallIssue": false,
+  "reportArgumentType": false,
+  "reportAttributeAccessIssue": false
+}

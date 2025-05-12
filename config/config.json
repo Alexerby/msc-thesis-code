@@ -1,0 +1,15 @@
+{
+    "paths": {
+        "data": {
+            "soep": "~/Data/SOEP-Core/CSV/soepdata/",
+            "destatis": "~/Data/Destatis/",
+            "self_composed": "~/Data/Self Composed",
+            "soep_cached": "~/Data/SOEP-Core_cached/"
+        },
+        "results": {
+            "figures": "~/Downloads/figures/",
+            "tables": "~/Downloads/tables/",
+            "dataframes": "~/Downloads/dataframes/"
+        }
+    }
+}
