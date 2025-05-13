@@ -102,15 +102,21 @@ class SOEPDataHandler(DatasetLoader):
         parquet_path = self.get_cache_path()
 
         if use_cache and parquet_path.exists():
-            print(f"✅ Loading cached Parquet: {parquet_path}")
-            self.data = pd.read_parquet(parquet_path, columns=columns)
-            return
+            try:
+                print(f"✅ Loading cached Parquet: {parquet_path}")
+                self.data = pd.read_parquet(parquet_path, columns=columns)
+                return
+            except (ValueError, OSError, pd.errors.ParserError, ImportError, Exception) as e:
+                print(f"⚠️ Failed to load Parquet with requested columns: {e}")
+                print("🔁 Falling back to CSV and overwriting cache.")
 
+        # Load CSV if no cache or if Parquet failed
         print(f"📄 Loading CSV: {file_path}")
         chunks = pd.read_csv(file_path, chunksize=chunk_size, usecols=columns)
         self.data = pd.concat(chunks, ignore_index=True)
         print("✅ CSV loading complete.")
 
+        # Cache new Parquet version
         if use_cache:
             print(f"💾 Caching to Parquet: {parquet_path}")
             self.data.to_parquet(parquet_path, index=False)
