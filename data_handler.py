@@ -50,29 +50,29 @@ class DatasetLoader:
             raise FileNotFoundError(f"Data file not found: {file_path}")
 
         if filetype == "csv":
+            print(f"✅Loading CSV: {file_path}")
             chunks = pd.read_csv(file_path, chunksize=chunk_size, usecols=columns)
             self.data = pd.concat(chunks, ignore_index=True)
-            print("CSV loading complete.")
         else:
             raise ValueError(f"Unsupported file type: {filetype}")
 
-    def load_first_n_rows(self, columns: List[str], n: int = 10000):
-        """Load the first n rows of a dataset file."""
-        self.data = pd.read_csv(self.file_path, nrows=n, usecols=columns)
+    # def load_first_n_rows(self, columns: List[str], n: int = 10000):
+    #     """Load the first n rows of a dataset file."""
+    #     self.data = pd.read_csv(self.file_path, nrows=n, usecols=columns)
 
-    def filter_data(self, variables: Union[str, List[str]], filter_values: List):
-        self.data = cast(pd.DataFrame, self.data)
-
-        if isinstance(variables, str):
-            variables = [variables]
-
-        for var in variables:
-            if var not in self.data.columns:
-                raise ValueError(f"Column '{var}' not found in data.")
-            before = len(self.data)
-            self.data = self.data.loc[~self.data[var].isin(filter_values)].copy()
-            after = len(self.data)
-            print(f"Filtered '{var}': {before - after} rows removed, {after} remaining.")
+    # def filter_data(self, variables: Union[str, List[str]], filter_values: List):
+    #     self.data = cast(pd.DataFrame, self.data)
+    #
+    #     if isinstance(variables, str):
+    #         variables = [variables]
+    #
+    #     for var in variables:
+    #         if var not in self.data.columns:
+    #             raise ValueError(f"Column '{var}' not found in data.")
+    #         before = len(self.data)
+    #         self.data = self.data.loc[~self.data[var].isin(filter_values)].copy()
+    #         after = len(self.data)
+    #         print(f"Filtered '{var}': {before - after} rows removed, {after} remaining.")
 
 
 class SOEPStatutoryInputs(DatasetLoader):
@@ -81,12 +81,6 @@ class SOEPStatutoryInputs(DatasetLoader):
 
 
 class SOEPDataHandler(DatasetLoader):
-    #TODO: 
-    # fix error handling for cached version
-    # currently when new variable is added 
-    # it fails the cache version. 
-    # overwrite the cache version to handle this
-
     def __init__(self, file: Union[str, Path]):
         super().__init__(file, config_section="soep")
 
@@ -108,7 +102,7 @@ class SOEPDataHandler(DatasetLoader):
                 return
             except (ValueError, OSError, pd.errors.ParserError, ImportError, Exception) as e:
                 print(f"⚠️ Failed to load Parquet with requested columns: {e}")
-                print("🔁 Falling back to CSV and overwriting cache.")
+                print("Falling back to CSV and overwriting cache.")
 
         # Load CSV if no cache or if Parquet failed
         print(f"📄 Loading CSV: {file_path}")

@@ -7,8 +7,9 @@ from .filters import filter_age, filter_years, filter_students
 
 
 from pipeline.soep_bundle import SOEPDataBundle
+from pipeline.policy_bundle import PolicyTableBundle
 
-def create_dataframe(data: SOEPDataBundle) -> pd.DataFrame:
+def create_dataframe(data: SOEPDataBundle, policy: PolicyTableBundle) -> pd.DataFrame:
     """
     Builds a student-level DataFrame with sociodemographic enrichment.
 
@@ -26,12 +27,12 @@ def create_dataframe(data: SOEPDataBundle) -> pd.DataFrame:
 
     # Optional filtering
     df = filter_students(df, data.pl)
+    df = filter_years(df)
 
     # Add sociodemographics
     df = add_sociodemographics(df, data)
-    df = add_income(df, data)
+    df = add_income(df, data, policy)
 
-    df = filter_years(df)
     df = filter_age(df, "age", age_limit=35)
 
     return pd.DataFrame(df)

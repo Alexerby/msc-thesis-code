@@ -3,30 +3,30 @@ import pandas as pd
 from data_handler import SOEPStatutoryInputs
 
 class TaxService:
-    def __init__(self):
-        self.tax_table   = self._load_tax_table()
-        self.soli_table  = self._load_soli_thresholds()
-        self._invalid    = {-1, -2, -3, -4, -5, -6, -7, -8}
+    def __init__(self, gross_income_col: str = "gross_income"):
+        self.gross_income_col = gross_income_col
+        self.tax_table = self._load_tax_table()
+        self.soli_table = self._load_soli_thresholds()
+        self._invalid = {-1, -2, -3, -4, -5, -6, -7, -8}
 
-    # ---------- public API ----------
-    def compute_for_row(self, 
-                        row: pd.Series, 
-                        gross_income: str = "pglabgro_annual_post_si"
-                        ) -> tuple[float | None, float | None, float | None]:
-        """ 
-        Parameters:
-            gross_income: column name of pd.Dataframe to be used to calculate income tax on
+    def compute_for_row(self, row: pd.Series) -> tuple[float | None, float | None, float | None]:
         """
-        year  = int(row["syear"])
-        itax  = self._income_tax(row[gross_income], year)
+        Compute income tax, church tax, and solidarity surcharge for a single row.
+        Uses the column provided via the constructor as the taxable income source.
+        """
+        year = int(row["syear"])
+        income = row.get(self.gross_income_col)
+
+        itax = self._income_tax(income, year)
         if itax is None:
             return None, None, None
-        
-        # TODO: Check church tax logic, not proper atm I think
+
+        # Church tax logic (optional rework)
         church = (
             math.floor(itax * (0.08 if row.get("bula") in [1, 2] else 0.09))
             if row.get("plh0258_h") in {1, 2} | self._invalid else 0
         )
+
         soli = self._soli(itax, row.get("hgtyp1hh"), year)
         return itax, church, soli
 
@@ -46,9 +46,18 @@ class TaxService:
         ))
 
         # -- 2) convert string numbers like "9,400" → 9400.0 ---------------
+        # df = df.apply(
+        #     lambda col: pd.to_numeric(col.str.replace(",", "."), errors="ignore")
+        #     if col.dtype == "object" else col
+        # )
+
+
         df = df.apply(
-            lambda col: pd.to_numeric(col.str.replace(",", "."), errors="ignore")
-            if col.dtype == "object" else col
+            lambda col: (
+                pd.to_numeric(col.str.replace(",", "."), errors="coerce")
+                if col.dtype == "object" and col.str.contains(",", na=False).any()
+                else col
+            )
         )
 
         # -- 3 … 6)  your reindex / interpolate steps  ---------------------

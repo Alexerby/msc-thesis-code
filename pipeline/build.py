@@ -34,7 +34,7 @@ class BafoegPipeline:
         policy = PolicyTableBundle.from_statutory_inputs()
 
         # Compose final tables
-        students_df = students.create_dataframe(data)
+        students_df = students.create_dataframe(data, policy)
         bafoeg_df = self._build_bafoeg_df(students_df, data, policy)
 
         return {
@@ -43,9 +43,9 @@ class BafoegPipeline:
         }
 
 
-    def _build_students_df(self, data: SOEPDataBundle) -> pd.DataFrame:
+    def _build_students_df(self, data: SOEPDataBundle, policy: PolicyTableBundle) -> pd.DataFrame:
         """Build the student-level base dataset (detached version, if needed)."""
-        return students.create_dataframe(data)
+        return students.create_dataframe(data, policy=policy)
 
 
     def _build_bafoeg_df(

@@ -44,10 +44,6 @@ def merge_income(
     pkal.loc[pkal["kal2a03_h"] == -2, "kal2a03_h"] = 0
     pkal.loc[pkal["kal2a02"] == -2, "kal2a02"] = 0
 
-    # Print values for inspection
-    print("📊 Unique values in 'kal2a02' (months with salary):")
-    print(sorted(pkal["kal2a02"].dropna().unique()))
-
     # Compute monthly and annual gross income
     pkal["gross_monthly_income"] = pkal["kal2a03_h"]
     pkal["gross_annual_income"] = pkal["kal2a03_h"] * pkal["kal2a02"]
@@ -57,7 +53,7 @@ def merge_income(
 
     # Merge with student DataFrame
     out = df.merge(
-        pkal[["pid", "syear", "gross_monthly_income", "gross_annual_income", "kal2a02"]],
+        pkal[["pid", "syear", "gross_monthly_income", "kal2a02", "gross_annual_income"]],
         on=["pid", "syear"],
         how="inner"
     )

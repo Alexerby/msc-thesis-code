@@ -1,8 +1,11 @@
 import pandas as pd
+from tabulate import tabulate
+
 
 def summarize_gross_income(
     df: pd.DataFrame,
-    exclude_zero: bool = True
+    exclude_zero: bool = True,
+    print_table: bool = True,
 ) -> pd.DataFrame:
     """
     Create a summary table of gross annual income and average working months
@@ -14,16 +17,19 @@ def summarize_gross_income(
         DataFrame with 'syear', 'gross_annual_income', and 'kal2a02'
     exclude_zero : bool
         Whether to exclude students with zero income from summary stats.
+    print_table : bool
+        Whether to print the summary using tabulate for pretty terminal output.
 
     Returns
     -------
     pd.DataFrame
         Summary statistics grouped by 'syear'
     """
-    # Keep relevant columns
-    income = df[["syear", "gross_annual_income", "gross_monthly_income", "kal2a02"]].dropna(subset=["gross_annual_income"])
+    # Filter to valid income entries
+    df = df[df["gross_annual_income"].notna()]
+    income = df[["syear", "gross_annual_income", "gross_monthly_income", "kal2a02"]]
 
-    # Optionally exclude students with zero income
+    # Optionally exclude zero income
     if exclude_zero:
         income = income[income["gross_annual_income"] > 0]
 
@@ -42,5 +48,20 @@ def summarize_gross_income(
         avg_kal2a02=("kal2a02", "mean"),
         avg_gross_monthly_income=("gross_monthly_income", "mean"),
     ).reset_index()
+
+    # Round income-related columns to integers
+    round_cols = [
+        "mean", "std", "min", "p5", "p25", "median",
+        "p75", "p95", "max", "avg_gross_monthly_income"
+    ]
+    for col in round_cols:
+        summary[col] = pd.to_numeric(summary[col], errors="coerce").round(0).astype("Int64")
+
+    # Round avg_kal2a02 to two decimal places
+    summary["avg_kal2a02"] = summary["avg_kal2a02"].round(2)
+
+    # Pretty print the table
+    if print_table:
+        print(tabulate(summary, headers="keys", tablefmt="fancy_grid", showindex=False))
 
     return summary
