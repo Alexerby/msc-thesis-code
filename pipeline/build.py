@@ -6,6 +6,7 @@ loading, filtering, and enrichment of SOEP student data for BAföG modeling.
 """
 
 from __future__ import annotations
+from collections.abc import Callable
 
 import pandas as pd
 
@@ -48,7 +49,11 @@ class BafoegPipeline:
         base_df = self._build_students_df()
         return (
             base_df.loc[:, cols].copy()
-            .pipe(bafoeg_calculations.create_dataframe, self._needs_table, self._insurance_table)
+            .pipe(bafoeg_calculations.create_dataframe, 
+                  need_table = self._needs_table, 
+                  insurance_table = self._insurance_table,
+                  pl_df = self.loaders.pl()
+                  )
         )
 
     def _load_policy_tables(self) -> None:

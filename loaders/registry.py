@@ -35,7 +35,14 @@ _SPEC: Dict[str, Tuple[str, List[str]]] = {
         # plg0012_h: Currently in education 
         # plh0258_h: Kirche, religion
         # plc0168_h: Bafoeg, Stipendium Bruttobetrag pro Monat
-        ["pid", "syear", "plg0012_h", "plh0258_h", "plc0168_h", "plg0014_v6",  "plg0014_v7"],
+        ["pid", 
+         "syear", 
+         "plg0012_h", 
+         "plh0258_h", 
+         "plc0167_h", 
+         "plc0168_h", 
+         "plg0014_v6",  
+         "plg0014_v7"],
     ),
     "pgen": (
         "pgen",

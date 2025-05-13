@@ -1,3 +1,17 @@
+"""
+Module for merging statutory BAföG need components into the student dataset.
+
+This module handles the parsing and integration of statutory tables that define
+student financial need according to BAföG law, including:
+
+- Basic need amounts (§13, §23)
+- Housing allowances (§13)
+- Health and long-term care insurance supplements (§13a)
+
+The functions in this module perform time-aligned merges between survey data
+and statutory rates, enabling the computation of total base need per student-year.
+"""
+
 import pandas as pd
 import numpy as np
 
@@ -56,7 +70,8 @@ def merge_need_amounts(
         columns=[
             "valid_from", "valid_from_ins", "syear_date",
             "base_need_parent", "base_need_away",
-            "housing_with_parents", "housing_away", "lives_at_home"
+            "housing_with_parents", "housing_away", "lives_at_home",
+            "kv_stat_mand", "pv_stat_mand"
         ],
         errors="ignore"
     )

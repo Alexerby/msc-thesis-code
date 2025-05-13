@@ -1,8 +1,14 @@
 import pandas as pd
 
-from .need_components import merge_need_amounts 
 
-def create_dataframe(df: pd.DataFrame, need_table: pd.DataFrame, insurance_table: pd.DataFrame) -> pd.DataFrame:
+from .need_components import merge_need_amounts 
+from .reported_amount import merge_reported_bafög
+
+def create_dataframe(df: pd.DataFrame, 
+                     need_table: pd.DataFrame, 
+                     insurance_table: pd.DataFrame,
+                     pl_df: pd.DataFrame
+                     ) -> pd.DataFrame:
     """
     Create a DataFrame containing calculated BAföG need components.
 
@@ -20,6 +26,12 @@ def create_dataframe(df: pd.DataFrame, need_table: pd.DataFrame, insurance_table
     pd.DataFrame
         DataFrame enriched with BAföG need components.
     """
-    df_with_needs = merge_need_amounts(df, need_table, insurance_table)
-    return df_with_needs
+
+    out = df.copy()
+
+    out = merge_need_amounts(out, need_table, insurance_table)
+
+    out = merge_reported_bafög(out, pl_df)
+
+    return out
 
