@@ -33,5 +33,3 @@ import pandas as pd
 #     condition = (df["excess_income_parents"] == 0) & (df["excess_income_student"] == 0)
 #     return df[~condition].copy()
 #
-#
-# # TODO: Add filter for age? Can only qualify for bafög if under 35?

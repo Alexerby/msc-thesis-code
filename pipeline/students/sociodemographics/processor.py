@@ -163,8 +163,23 @@ def add_lives_at_home_flag(df: pd.DataFrame, ppath_df: pd.DataFrame) -> pd.DataF
 
 def add_partner_flag(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Add 'has_partner' = 1 if the person has a spouse/partner or probable one (codes 1–4), 0 otherwise.
-    Always overwrites any existing 'has_partner' column with clean integer 0/1 values.
+    Add a binary 'has_partner' column indicating whether the person has a spouse/partner.
+
+    This function sets 'has_partner' = 1 if the individual is coded as having a spouse/partner 
+    or probable partner (based on specific partner codes, e.g., 1 or 3), and 0 otherwise.
+    It always overwrites any existing 'has_partner' column with clean integer 0/1 values.
+
+    Note:
+        This column does **not** correspond to 'pgpartnr', which provides the personal ID 
+        (pid) of the partner if that partner is also part of the SOEP sample. 
+        'has_partner' simply reflects whether the individual is considered to have a partner 
+        based on survey coding, regardless of whether the partner is in the dataset.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame with a 'partner' column.
+
+    Returns:
+        pd.DataFrame: A copy of the input DataFrame with an added 'has_partner' column (0 or 1).
     """
     out = df.copy()
     partner_codes = {1, 3}

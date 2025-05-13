@@ -33,6 +33,7 @@ def merge_reported_bafög(
 def merge_reported_bafög_receipt(
         df: pd.DataFrame,
         pl_df: pd.DataFrame) -> pd.DataFrame:
+    #TODO: we have rows that are NaN - double check
     """
     Merge the cleaned BAföG receipt indicator (plc0167_h) into the main dataset.
 

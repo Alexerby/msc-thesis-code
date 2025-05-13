@@ -74,6 +74,28 @@ _SPEC: Dict[str, Tuple[str, List[str]]] = {
          "pgpartnr"
          ], 
     ),
+    "pkal": (
+        "pkal",
+        [
+         "pid", 
+         "syear", 
+         "kal2a001", 
+         "kal2a002", 
+         "kal2a003", 
+         "kal2a004", 
+         "kal2a005", 
+         "kal2a006", 
+         "kal2a007", 
+         "kal2a008", 
+         "kal2a009", 
+         "kal2a010", 
+         "kal2a011", 
+         "kal2a012", 
+
+         "kal2a02",
+         "kal2a03_h"
+         ], 
+    ),
     "bioparen": (
         "bioparen",
         ["pid", "fnr", "mnr"],
@@ -171,6 +193,11 @@ class LoaderRegistry:
     def pequiv(self):
         # Generated person-level transfer/income indicators (e.g., istuy)
         return self.load("pequiv")
+
+
+    def pkal(self):
+        # Generated person-level transfer/income indicators (e.g., istuy)
+        return self.load("pkal")
 
     # ---------------------------------------------------------------------
     # Generated datasets (cleaned/derived variables)

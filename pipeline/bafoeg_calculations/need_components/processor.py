@@ -192,6 +192,8 @@ def merge_base_and_housing(df: pd.DataFrame, need: pd.DataFrame) -> pd.DataFrame
 
 
 def merge_insurance_supplement(df: pd.DataFrame, ins: pd.DataFrame) -> pd.DataFrame:
+    #TODO: Make insurance supplement conditional on living_at_home
+    # Assume no insurance if lives at home?
     """
     Merge statutory insurance supplements onto student data.
 

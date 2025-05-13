@@ -1,6 +1,8 @@
 import pandas as pd
 
 from .sociodemographics import add_sociodemographics
+from .income import add_income
+
 from .filters import filter_age, filter_years, filter_students
 
 
@@ -27,6 +29,7 @@ def create_dataframe(data: SOEPDataBundle) -> pd.DataFrame:
 
     # Add sociodemographics
     df = add_sociodemographics(df, data)
+    df = add_income(df, data)
 
     df = filter_years(df)
     df = filter_age(df, "age", age_limit=35)

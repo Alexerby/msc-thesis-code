@@ -23,6 +23,7 @@ from pipeline.policy_bundle import PolicyTableBundle
 class BafoegPipeline:
     """Compose the final student DataFrame in one go."""
 
+
     def __init__(self, loaders: LoaderRegistry):
         self.loaders = loaders
         self.tax = TaxService()
@@ -41,9 +42,11 @@ class BafoegPipeline:
             "bafoeg_calculations": bafoeg_df,
         }
 
+
     def _build_students_df(self, data: SOEPDataBundle) -> pd.DataFrame:
         """Build the student-level base dataset (detached version, if needed)."""
         return students.create_dataframe(data)
+
 
     def _build_bafoeg_df(
         self,
