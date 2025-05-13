@@ -42,6 +42,7 @@ class BafoegPipeline:
             bioparen_df=self.loaders.bioparen(),
             biol_df=self.loaders.biol(),
             pl_df=self.loaders.pl(),
+            pgen_df = self.loaders.pgen()
         )
 
     def _build_bafoeg_df(self) -> pd.DataFrame:

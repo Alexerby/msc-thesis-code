@@ -8,7 +8,8 @@ def add_sociodemographics(
     region_df: pd.DataFrame,
     hgen_df: pd.DataFrame,
     bioparen_df: pd.DataFrame,
-    biol_df: pd.DataFrame
+    biol_df: pd.DataFrame, 
+    pgen_df: pd.DataFrame
 ) -> pd.DataFrame:
     return (
         df.copy()
@@ -16,11 +17,40 @@ def add_sociodemographics(
         .pipe(add_bundesland, region_df)
         .pipe(add_east_background)
         .pipe(add_household_type, hgen_df)
-        .pipe(add_parent_ids, bioparen_df)
+
+        # Family identifiers (pids)
+        .pipe(add_parent_pids, bioparen_df)
+        .pipe(add_current_partner_pid, pgen_df)
+
         .pipe(add_lives_at_home_flag, ppath_df)
         .pipe(add_partner_flag)
         .pipe(add_child_count, bioparen_df, biol_df)
     )
+
+
+def add_current_partner_pid(df: pd.DataFrame, pgen_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Merge the current partner's PID into the dataset based on SOEP partnership indicators.
+
+    This function merges the `pgpartnr` variable from the SOEP `pgen` dataset onto the 
+    input DataFrame. `pgpartnr` indicates the PID of the respondent's current partner 
+    (in the same household) for a given survey year (`syear`).
+
+    Coding of `pgpartnr`:
+    - `> 0`: PID of the partner (valid partner link)
+    - `-2`: Respondent has no spouse or cohabiting partner in the household (i.e. unpartnered)
+    - `NaN`: No person-level interview for the given year (respondent not in `pgen` that year)
+
+    Parameters:
+    - df (pd.DataFrame): A DataFrame containing at least 'pid' and 'syear' columns.
+    - pgen_df (pd.DataFrame): The SOEP `pgen` dataset containing 'pid', 'syear', and 'pgpartnr'.
+
+    Returns:
+    - pd.DataFrame: The input DataFrame with an added 'pgpartnr' column indicating
+      the current partner's PID (or appropriate code if not partnered or missing).
+    """
+    pgen = pgen_df[["pid", "syear", "pgpartnr"]].copy()
+    return df.merge(pgen, on=["pid", "syear"], how="left")
 
 
 def add_age(df: pd.DataFrame, ppath_df: pd.DataFrame) -> pd.DataFrame:
@@ -46,7 +76,15 @@ def add_household_type(df: pd.DataFrame, hgen_df: pd.DataFrame) -> pd.DataFrame:
     return df.merge(hgen_df[["hid", "syear", "hgtyp1hh"]], on=["hid", "syear"], how="left")
 
 
-def add_parent_ids(df: pd.DataFrame, bioparen_df: pd.DataFrame) -> pd.DataFrame:
+def add_parent_pids(df: pd.DataFrame, 
+                   bioparen_df: pd.DataFrame,
+                   ) -> pd.DataFrame:
+    """https://companion.soep.de/Data%20Structure%20of%20SOEPcore/Data%20Identifier.html#individual-identifier-mother-father-mnr-fnr
+    """
+    #TODO: Some values here will be empty because the merge 
+    # did not find any fnr/mnr in the right_df, but what does a value of -1 tell us?
+    # Empty cell    -> No merge found in bioparen 
+    # -1            -> -1 (explicitly in dataset that parent is not in SOEP dataset?)
     return df.merge(bioparen_df[["pid", "fnr", "mnr"]], on="pid", how="left")
 
 
@@ -84,6 +122,8 @@ def add_partner_flag(df: pd.DataFrame) -> pd.DataFrame:
 
     return out
 
+
+#TODO: Update the child function to use biobirth kidnr01 -- kidnr19
 
 def add_child_count(
     df: pd.DataFrame,

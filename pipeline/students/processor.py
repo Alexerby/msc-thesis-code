@@ -11,6 +11,7 @@ def create_dataframe(
     bioparen_df: pd.DataFrame,
     biol_df: pd.DataFrame,
     pl_df: pd.DataFrame,
+    pgen_df: pd.DataFrame
 ) -> pd.DataFrame:
     """
     Builds a student-level DataFrame with sociodemographic enrichment.
@@ -49,7 +50,8 @@ def create_dataframe(
         region_df=region_df,
         hgen_df=hgen_df,
         bioparen_df=bioparen_df,
-        biol_df=biol_df
+        biol_df=biol_df,
+        pgen_df=pgen_df
     )
 
     df = filter_years(df)

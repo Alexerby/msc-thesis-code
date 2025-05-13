@@ -3,7 +3,19 @@ import pandas as pd
 
 def get_bioparen_child_counts(bioparen_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Returns a DataFrame with `parent_pid` and number of known biological children.
+    Count the number of known children per parent using the `bioparen` dataset.
+
+    This function identifies all parent-child relationships based on `fnr` (father pid) 
+    and `mnr` (mother pid), and returns a DataFrame with the number of times each 
+    parent appears as a biological parent.
+
+    Parameters:
+    - bioparen_df (pd.DataFrame): A DataFrame containing at least the columns `pid`, `fnr`, and `mnr`.
+
+    Returns:
+    - pd.DataFrame: A DataFrame with one row per parent, containing:
+        - 'parent_pid': The pid of the identified parent (from fnr or mnr)
+        - 'num_children_bioparen': The number of children linked to that parent
     """
     parent_child = (
         pd.concat([
@@ -23,8 +35,23 @@ def get_bioparen_child_counts(bioparen_df: pd.DataFrame) -> pd.DataFrame:
 
 def get_biol_child_counts(biol_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Returns biol_df with forward-filled child counts (num_children_biol) per pid.
-    Assumes biol_df has ['pid', 'syear', 'lb0285'].
+    Extract and forward-fill the number of biological children for each respondent over time.
+
+    This function processes panel data with a variable (`lb0285`) that reports the cumulative 
+    number of biological children per person. It ensures missing values are forward-filled 
+    by person across survey years.
+
+    Parameters:
+    - biol_df (pd.DataFrame): A DataFrame containing at least the columns:
+        - 'pid': Person identifier
+        - 'syear': Survey year
+        - 'lb0285': Reported cumulative number of biological children
+
+    Returns:
+    - pd.DataFrame: A DataFrame with columns:
+        - 'pid': Person identifier
+        - 'syear': Survey year
+        - 'num_children_biol': Forward-filled number of biological children
     """
     if "lb0285" not in biol_df.columns:
         raise ValueError("biol_df must contain column 'lb0285'")

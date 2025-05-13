@@ -25,9 +25,26 @@ _SPEC: Dict[str, Tuple[str, List[str]]] = {
             "gebjahr",
             "sex",
             "gebmonat",
-            "parid",
+            # "parid",
             "partner",
             "migback",
+        ],
+    ),
+    "biosib": (
+        "biosib",
+        [
+            "pid",
+            "sibpnr1",
+            "sibpnr2",
+            "sibpnr3",
+            "sibpnr4",
+            "sibpnr5",
+            "sibpnr6",
+            "sibpnr7",
+            "sibpnr8",
+            "sibpnr9",
+            "sibpnr10",
+            "sibpnr11",
         ],
     ),
     "pl": (
@@ -35,18 +52,26 @@ _SPEC: Dict[str, Tuple[str, List[str]]] = {
         # plg0012_h: Currently in education 
         # plh0258_h: Kirche, religion
         # plc0168_h: Bafoeg, Stipendium Bruttobetrag pro Monat
-        ["pid", 
+        [
+         "pid", 
          "syear", 
          "plg0012_h", 
          "plh0258_h", 
          "plc0167_h", 
          "plc0168_h", 
          "plg0014_v6",  
-         "plg0014_v7"],
+         "plg0014_v7"
+         ],
     ),
     "pgen": (
         "pgen",
-        ["pid", "syear", "pglabgro", "pgemplst"], 
+        [
+         "pid", 
+         "syear", 
+         "pglabgro", 
+         "pgemplst", 
+         "pgpartnr"
+         ], 
     ),
     "bioparen": (
         "bioparen",
