@@ -1,22 +1,30 @@
 import pandas as pd
 from . import sanity
 
+from pipeline.soep_bundle import SOEPDataBundle
+
 def merge_reported_bafög(
-        df: pd.DataFrame,
-        pl_df: pd.DataFrame) -> pd.DataFrame:
+    df: pd.DataFrame,
+    data: SOEPDataBundle
+) -> pd.DataFrame:
     """
     Merge both the cleaned BAföG receipt indicator and the reported monthly amount
     into the main student dataset.
 
-    Parameters:
-    - df: Main DataFrame containing student-level data.
-    - pl_df: The 'pl' dataset with reported income variables (plc0167_h, plc0168_h).
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Main DataFrame containing student-level data.
+    data : SOEPDataBundle
+        Bundle containing SOEP Core input DataFrames, including 'pl'.
 
-    Returns:
-    - pd.DataFrame: The original dataset with 'plc0167_h' and 'plc0168_h' merged in.
+    Returns
+    -------
+    pd.DataFrame
+        The original dataset with 'plc0167_h' and 'plc0168_h' merged in.
     """
-    df = merge_reported_bafög_receipt(df, pl_df)
-    df = merge_reported_amounts_plc0168(df, pl_df)
+    df = merge_reported_bafög_receipt(df, data.pl)
+    df = merge_reported_amounts_plc0168(df, data.pl)
 
     sanity.assert_no_inconsistent_bafög_amounts(df)
     return df

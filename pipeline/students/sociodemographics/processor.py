@@ -1,30 +1,23 @@
 import pandas as pd 
 from .count_own_children import get_bioparen_child_counts, get_biol_child_counts
 
+from pipeline.soep_bundle import SOEPDataBundle
 
-def add_sociodemographics(
-    df: pd.DataFrame,
-    ppath_df: pd.DataFrame,
-    region_df: pd.DataFrame,
-    hgen_df: pd.DataFrame,
-    bioparen_df: pd.DataFrame,
-    biol_df: pd.DataFrame, 
-    pgen_df: pd.DataFrame
-) -> pd.DataFrame:
+def add_sociodemographics(df: pd.DataFrame, data: SOEPDataBundle) -> pd.DataFrame:
     return (
         df.copy()
-        .pipe(add_age, ppath_df)
-        .pipe(add_bundesland, region_df)
+        .pipe(add_age, data.ppath)
+        .pipe(add_bundesland, data.region)
         .pipe(add_east_background)
-        .pipe(add_household_type, hgen_df)
+        .pipe(add_household_type, data.hgen)
 
         # Family identifiers (pids)
-        .pipe(add_parent_pids, bioparen_df)
-        .pipe(add_current_partner_pid, pgen_df)
+        .pipe(add_parent_pids, data.bioparen)
+        .pipe(add_current_partner_pid, data.pgen)
 
-        .pipe(add_lives_at_home_flag, ppath_df)
+        .pipe(add_lives_at_home_flag, data.ppath)
         .pipe(add_partner_flag)
-        .pipe(add_child_count, bioparen_df, biol_df)
+        .pipe(add_child_count, data.bioparen, data.biol)
     )
 
 
