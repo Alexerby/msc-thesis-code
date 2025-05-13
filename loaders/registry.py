@@ -59,6 +59,7 @@ _SPEC: Dict[str, Tuple[str, List[str]]] = {
          "plh0258_h", 
          "plc0167_h", 
          "plc0168_h", 
+         "plg0014_v5",  
          "plg0014_v6",  
          "plg0014_v7"
          ],
@@ -146,6 +147,11 @@ class LoaderRegistry:
     def bioparen(self):
         # Parent-child linkages: maps pid → (fnr, mnr)
         return self.load("bioparen")
+
+
+    def biosib(self):
+        # Long-format biography module: fertility, children, life events
+        return self.load("biosib")
 
     # ---------------------------------------------------------------------
     # Long datasets (person-year observations)

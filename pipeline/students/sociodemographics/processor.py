@@ -18,6 +18,68 @@ def add_sociodemographics(df: pd.DataFrame, data: SOEPDataBundle) -> pd.DataFram
         .pipe(add_lives_at_home_flag, data.ppath)
         .pipe(add_partner_flag)
         .pipe(add_child_count, data.bioparen, data.biol)
+        .pipe(add_siblings_pid, data.biosib)
+    )
+
+
+
+def add_siblings_pid(df: pd.DataFrame, biosib_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Adds sibling information to the student-level DataFrame.
+
+    For each student (pid), extracts the list of known sibling pids from the
+    `biosib` dataset and computes the number of valid known siblings.
+    
+    Invalid codes (e.g., -2 in SOEP) and missing values are excluded.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Student-level DataFrame with one row per pid.
+    biosib_df : pd.DataFrame
+        SOEP `biosib` dataset containing columns 'sibpnr1' to 'sibpnr11'.
+
+    Returns
+    -------
+    pd.DataFrame
+        Input DataFrame with two new columns:
+          - 'sibling_pids': list of valid sibling pids
+          - 'num_known_siblings': count of valid sibling pids
+    """
+
+    # Create a list of all sibpnr columns
+    sib_cols = [col for col in biosib_df.columns if col.startswith("sibpnr")]
+
+    # Melt to long format to gather all siblings under one column
+    long_df = (
+        biosib_df[["pid"] + sib_cols]
+        .set_index("pid")
+        .stack()
+        .reset_index()
+        .rename(columns={"level_1": "sib_col", 0: "sibling_pid"})
+    )
+
+    # Drop NA and filter out invalid sibling pids (SOEP missing codes: e.g., -2)
+    long_df = long_df.dropna(subset=["sibling_pid"])
+    long_df = long_df[long_df["sibling_pid"] > 0]
+
+    # Group by pid to collect valid sibling pids into lists
+    sibling_df = (
+        long_df.groupby("pid")["sibling_pid"]
+        .agg(list)
+        .reset_index()
+        .rename(columns={"sibling_pid": "sibling_pids"})
+    )
+
+    sibling_df["num_known_siblings"] = sibling_df["sibling_pids"].apply(len)
+
+    # Merge with original df
+    return (
+        df.merge(sibling_df, on="pid", how="left")
+          .assign(
+              sibling_pids=lambda d: d["sibling_pids"].apply(lambda x: x if isinstance(x, list) else []),
+              num_known_siblings=lambda d: d["num_known_siblings"].fillna(0).astype(int)
+          )
     )
 
 

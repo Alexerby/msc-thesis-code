@@ -11,6 +11,7 @@ class SOEPDataBundle:
     biol: pd.DataFrame
     pl: pd.DataFrame
     pgen: pd.DataFrame
+    biosib: pd.DataFrame 
 
     @classmethod
     def from_registry(cls, registry: LoaderRegistry) -> "SOEPDataBundle":
@@ -21,5 +22,6 @@ class SOEPDataBundle:
             bioparen=registry.bioparen(),
             biol=registry.biol(),
             pl=registry.pl(),
-            pgen=registry.pgen()
+            pgen=registry.pgen(),
+            biosib=registry.biosib()
         )
