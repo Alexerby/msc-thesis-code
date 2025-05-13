@@ -81,6 +81,12 @@ class SOEPStatutoryInputs(DatasetLoader):
 
 
 class SOEPDataHandler(DatasetLoader):
+    #TODO: 
+    # fix error handling for cached version
+    # currently when new variable is added 
+    # it fails the cache version. 
+    # overwrite the cache version to handle this
+
     def __init__(self, file: Union[str, Path]):
         super().__init__(file, config_section="soep")
 
