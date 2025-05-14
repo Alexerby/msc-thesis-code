@@ -5,11 +5,11 @@ from data_handler import SOEPStatutoryInputs
 @dataclass
 class PolicyTableBundle:
     werbung: pd.DataFrame
-    allowance: pd.DataFrame
     needs: pd.DataFrame
-    student_allowance: pd.DataFrame
     insurance: pd.DataFrame
     social_insurance: pd.DataFrame
+    individual_allowance: pd.DataFrame
+    allowance_25: pd.DataFrame
 
     @classmethod
     def from_statutory_inputs(cls) -> "PolicyTableBundle":
@@ -20,9 +20,9 @@ class PolicyTableBundle:
 
         return cls(
             werbung=load("Werbungskostenpauschale", ["Year", "werbungskostenpauschale"]),
-            allowance=load("Basic Allowances - § 25"),
             needs=load("Basic Allowances - § 13"),
-            student_allowance=load("Basic Allowances - § 23"),
             insurance=load("Basic Allowances - § 13a"),
+            allowance_25=load("Basic Allowances - § 25"),
+            individual_allowance=load("Basic Allowances - § 23"),
             social_insurance=load("Sozialversicherung - § 21"),
         )

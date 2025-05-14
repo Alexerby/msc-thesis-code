@@ -95,6 +95,10 @@ def clean_plc0167_h(pl_df: pd.DataFrame) -> pd.DataFrame:
     valid_values = [1, -2]
     pl["plc0167_h"] = pl["plc0167_h"].where(pl["plc0167_h"].isin(valid_values), pd.NA)
 
+    # Map to 0/1
+    value_map = {1: 1, -2: 0}
+    pl["plc0167_h"] = pl["plc0167_h"].map(value_map)
+
     return pl
 
 

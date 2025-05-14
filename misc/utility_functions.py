@@ -23,6 +23,7 @@ def _norm(col: str) -> str:
     """Remove whitespace and make lowercase – for robust column matching."""
     return re.sub(r"\s+", "", col).lower()
 
+
 def _auto_map(cols, patterns):
     """
     Build {old_name: new_name} where `patterns` is
@@ -72,50 +73,6 @@ def load_project_config(filename: str = "config.json") -> Dict:
     """
     config_path = get_config_path(filename)
     return load_config(config_path)
-
-# def export_data(
-#     data_type: Literal["csv", "excel"],
-#     df: pd.DataFrame,
-#     output_filename: str,
-#     sheet_name: str = "Sheet1"
-# ):
-#     """Exports data to the results directory without overwriting existing files.
-#     
-#     Args:
-#         data_type (str): "csv" or "excel"
-#         df (pd.DataFrame): The DataFrame to export
-#         output_filename (str): Base name for the output file (no extension needed)
-#         sheet_name (str): Optional sheet name for Excel exports
-#     """
-#
-#     # if df is None: # Unreachable, comment out for now
-#     #     raise ValueError("Dataframe is empty")
-#
-#     config_path = get_config_path(Path("config.json"))
-#     config = load_config(config_path)
-#     results_folder = Path(config["paths"]["results"]["dataframes"])
-#
-#     # Ensure output directory exists
-#     results_folder = results_folder.expanduser().resolve()
-#     results_folder.mkdir(parents=True, exist_ok=True)
-#
-#     # Append correct extension
-#     ext = ".csv" if data_type == "csv" else ".xlsx"
-#     output_filename = f"{output_filename}{ext}" if not output_filename.endswith(ext) else output_filename
-#
-#     # Avoid overwrite
-#     file_path = results_folder / output_filename
-#     file_base, file_extension = os.path.splitext(output_filename)
-#     counter = 1
-#     while file_path.exists():
-#         file_path = results_folder / f"{file_base} ({counter}){file_extension}"
-#         counter += 1
-#
-#     # Export
-#     if data_type == "csv":
-#         df.to_csv(file_path, index=False)
-#     elif data_type == "excel":
-#         df.to_excel(file_path, index=False, sheet_name=sheet_name)
 
 
 def export_parquet(df: pd.DataFrame, base_name: str, results_key: str = "dataframes") -> Path:

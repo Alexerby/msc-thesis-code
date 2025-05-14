@@ -1,7 +1,10 @@
+from os import walk
 import pandas as pd 
 from .count_own_children import get_bioparen_child_counts, get_biol_child_counts
 
 from pipeline.soep_bundle import SOEPDataBundle
+
+from pipeline.common.processor_sociodemographics import add_age
 
 def add_sociodemographics(df: pd.DataFrame, data: SOEPDataBundle) -> pd.DataFrame:
     return (
@@ -107,14 +110,6 @@ def add_current_partner_pid(df: pd.DataFrame, pgen_df: pd.DataFrame) -> pd.DataF
     pgen = pgen_df[["pid", "syear", "pgpartnr"]].copy()
     return df.merge(pgen, on=["pid", "syear"], how="left")
 
-
-def add_age(df: pd.DataFrame, ppath_df: pd.DataFrame) -> pd.DataFrame:
-    p = ppath_df[["pid", "syear", "gebjahr", "gebmonat"]].copy()
-    p["age"] = p["syear"] - p["gebjahr"] - (p["gebmonat"] > 6).astype(int)
-    return (
-        df.drop(columns=["gebjahr", "gebmonat"], errors="ignore")
-          .merge(p[["pid", "syear", "age"]], on=["pid", "syear"], how="left")
-    )
 
 
 def add_bundesland(df: pd.DataFrame, region_df: pd.DataFrame) -> pd.DataFrame:
@@ -222,11 +217,14 @@ def add_child_count(
     )
 
     # Combine both sources
-    df_out["num_children_final"] = (
+    df_out["num_children"] = (
         df_out["num_children_bioparen"]
         .combine_first(df_out["num_children_biol"])
         .fillna(0)
         .astype(int)
     )
+
+    # TODO: Check if we can improve logic
+    df_out["num_children"] = df_out["num_children"].mask(df_out["num_children"] < 0, 0)
 
     return df_out.drop(columns=["num_children_bioparen", "num_children_biol"])

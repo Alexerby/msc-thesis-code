@@ -3,7 +3,8 @@ import pandas as pd
 from .sociodemographics import add_sociodemographics
 from .income import add_income
 
-from .filters import filter_age, filter_years, filter_students
+from .filters import filter_years
+from pipeline.common.filters import filter_age, filter_students
 
 
 from pipeline.soep_bundle import SOEPDataBundle
@@ -31,8 +32,9 @@ def create_dataframe(data: SOEPDataBundle, policy: PolicyTableBundle) -> pd.Data
 
     # Add sociodemographics
     df = add_sociodemographics(df, data)
+    df = filter_age(df, "age", age_limit=35)
+
     df = add_income(df, data, policy)
 
-    df = filter_age(df, "age", age_limit=35)
 
     return pd.DataFrame(df)

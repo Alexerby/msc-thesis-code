@@ -188,16 +188,25 @@ def apply_entity_allowances(
     df: pd.DataFrame,
     allowance_table: pd.DataFrame,
     *,
-    entity_keys: dict[str, str],  # {'self': 'allowance_self', 'spouse': 'allowance_spouse', ...}
+    entity_keys: dict[str, str],  # {'student': 'allowance_student', 'spouse': ..., ...}
     entity_counts: dict[str, str],  # {'spouse': 'has_partner', 'child': 'num_children'}
     income_col: str,
     output_col: str,
+    base_entity: str,  # Which entity's allowance to initialize with
     valid_from_col: str = "Valid from",
     date_col: str = "syear",
-    merge_on: list[str] = ["pid", "syear"]
+    subtract_income_from_allowance: bool = False,  # <--- NEW PARAMETER
 ) -> pd.DataFrame:
     """
-    Generalized allowance deduction logic.
+    Generalized allowance deduction logic for students, partners, or parents.
+    Performs sanity checks on entity count columns.
+
+    Parameters
+    ----------
+    base_entity : str
+        Key in entity_keys used to initialize the allowance (e.g. "student", "parent", "partner").
+    subtract_income_from_allowance : bool
+        If True, computes max(allowance - income, 0). If False, computes max(income - allowance, 0).
     """
     out = df.copy()
 
@@ -217,17 +226,147 @@ def apply_entity_allowances(
     )
 
     # Compute total allowance
-    out["total_allowance"] = out[entity_keys["self"]]
+    out["total_allowance"] = out[entity_keys[base_entity]]
+
     for entity, allowance_col in entity_keys.items():
-        if entity == "self":
+        if entity == base_entity:
             continue
-        count_col = entity_counts[entity]
-        if count_col in out:
+        count_col = entity_counts.get(entity)
+        if count_col and count_col in out:
             out[entity] = out[count_col].fillna(0).astype(int)
+
+            # Sanity check
+            if not ((out[entity] >= 0) & (out[entity] == out[entity].astype(int))).all():
+                raise ValueError(
+                    f"Column '{count_col}' contains negative or non-integer values."
+                )
+
+            if set(out[entity].dropna().unique()) - {0, 1} and "partner" in entity:
+                raise ValueError(
+                    f"Binary column '{count_col}' (e.g., for 'has_partner') must only contain 0 or 1."
+                )
         else:
             out[entity] = 0
+
         out["total_allowance"] += out[entity] * out[allowance_col]
 
-    out[output_col] = np.maximum(out[income_col] - out["total_allowance"], 0)
+    # Core subtraction logic with direction switch
+    if subtract_income_from_allowance:
+        out[output_col] = np.maximum(out["total_allowance"] - out[income_col], 0)
+    else:
+        out[output_col] = np.maximum(out[income_col] - out["total_allowance"], 0)
 
     return out.drop(columns=["valid_from", "syear_date"] + list(entity_keys.values()))
+
+
+
+
+
+
+
+
+
+####################
+# Call for parents
+####################
+
+# .pipe(
+#     apply_entity_allowances,
+#     allowance_table=policy.parental_allowance.rename(columns={
+#         "§ 25 (1) 1": "allowance_joint",
+#         "§ 25 (1) 2": "allowance_single"
+#     }),
+#     entity_keys={
+#         "parent": "allowance_joint"  # Use allowance_joint/single depending on pre-processing
+#     },
+#     entity_counts={},
+#     base_entity="parent",
+#     income_col="net_monthly_income",
+#     output_col="net_income_less_basic_allowance"
+# )
+
+
+
+####################
+# Call for partner
+####################
+
+# .pipe(
+#     apply_entity_allowances,
+#     allowance_table=policy.student_allowance.rename(columns={
+#         "§ 23 (1) 2": "allowance_partner"
+#     }),
+#     entity_keys={
+#         "partner": "allowance_partner"
+#     },
+#     entity_counts={},  # no dependents
+#     base_entity="partner",
+#     income_col="net_monthly_income_partner",
+#     output_col="excess_income_partner"
+# )
+#
+
+
+
+
+################################################################ 
+# OLD 
+################################################################ 
+
+# def apply_entity_allowances(
+#     df: pd.DataFrame,
+#     allowance_table: pd.DataFrame,
+#     *,
+#     entity_keys: dict[str, str],  # {'student': 'allowance_student', 'spouse': ..., ...}
+#     entity_counts: dict[str, str],  # {'spouse': 'has_partner', 'child': 'num_children'}
+#     income_col: str,
+#     output_col: str,
+#     base_entity: str,  # Which entity's allowance to initialize with
+#     valid_from_col: str = "Valid from",
+#     date_col: str = "syear",
+# ) -> pd.DataFrame:
+#     """
+#     Generalized allowance deduction logic for students, partners, or parents.
+#
+#     Parameters
+#     ----------
+#     base_entity : str
+#         Key in entity_keys used to initialize the allowance (e.g. "student", "parent", "partner").
+#     """
+#     out = df.copy()
+#
+#     # Prepare allowance table
+#     tab = allowance_table.rename(columns={valid_from_col: "valid_from"}).copy()
+#     tab["valid_from"] = pd.to_datetime(tab["valid_from"])
+#     tab = tab.sort_values("valid_from").ffill()
+#
+#     # Merge allowance table by time
+#     out["syear_date"] = pd.to_datetime(out[date_col].astype(str) + "-01-01")
+#     out = pd.merge_asof( 
+#         out.sort_values("syear_date"),
+#         tab[["valid_from"] + list(entity_keys.values())],
+#         left_on="syear_date",
+#         right_on="valid_from",
+#         direction="backward"
+#     )
+#
+#     # Compute total allowance
+#     # Uses the base_entity value to find the correct key in 
+#     # entity_keys and in turn select the relevant column in 
+#     # the allowance_table
+#     out["total_allowance"] = out[entity_keys[base_entity]] 
+#
+#
+#     for entity, allowance_col in entity_keys.items():
+#         if entity == base_entity:
+#             continue
+#         count_col = entity_counts.get(entity)
+#         if count_col and count_col in out:
+#             out[entity] = out[count_col].fillna(0).astype(int)
+#         else:
+#             out[entity] = 0
+#         out["total_allowance"] += out[entity] * out[allowance_col]
+#
+#     out[output_col] = np.maximum(out[income_col] - out["total_allowance"], 0)
+#
+#     return out.drop(columns=["valid_from", "syear_date"] + list(entity_keys.values()))

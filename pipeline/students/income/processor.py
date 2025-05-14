@@ -63,7 +63,7 @@ def add_income(df: pd.DataFrame, data: SOEPDataBundle, policy: PolicyTableBundle
         # 5. Apply personal + family-based allowance deductions to compute excess income
         .pipe(
             apply_entity_allowances,
-            allowance_table=policy.student_allowance.rename(columns={
+            allowance_table=policy.individual_allowance.rename(columns={
                 "§ 23 (1) 1": "allowance_self",
                 "§ 23 (1) 2": "allowance_spouse",
                 "§ 23 (1) 3": "allowance_child"
@@ -78,6 +78,7 @@ def add_income(df: pd.DataFrame, data: SOEPDataBundle, policy: PolicyTableBundle
                 "child": "num_children"
             },
             income_col="net_monthly_income",
-            output_col="excess_income"
+            output_col="excess_income",
+            base_entity="self"
         )
     )

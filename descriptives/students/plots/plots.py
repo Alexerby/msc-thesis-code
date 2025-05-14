@@ -1,89 +1,71 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
-import pandas as pd
+import os
 
-from misc.decorators import log_plot_saving
-
-
-@log_plot_saving
-def plot_need_components_over_time(df: pd.DataFrame, save_path: str | None = None):
+def plot_variable(
+    df, var, plot_type, groupby=None, timevar=None, hue=None, 
+    save_path=None, dpi=300, drop_zeros=True, **kwargs
+):
     """
-    Plot the evolution of BAföG need components over survey years.
-    """
-    components = [
-        "base_need", 
-        "housing_allowance",
-        "insurance_supplement", 
-        "total_base_need"
-    ]
-
-    # Friendly labels for legend
-    component_labels = {
-        "base_need": "Base Need",
-        "housing_allowance": "Housing Allowance",
-        "insurance_supplement": "Insurance Supplement",
-        "total_base_need": "Total Base Need"
-    }
-
-    # Group and reshape data
-    grouped = df.groupby("syear")[components].mean().reset_index()
-    melted = pd.melt(grouped, id_vars="syear", var_name="component", value_name="value")
-    melted["component"] = melted["component"].map(component_labels)
-
-    # Plot
-    plt.figure(figsize=(12, 6))
-    sns.lineplot(
-        data=melted,
-        x="syear",
-        y="value",
-        hue="component",
-        style="component",
-        markers=True,
-        dashes=False,
-    )
-
-    plt.title("Average BAföG Need Components Over Time")
-    plt.ylabel("EUR per month")
-    plt.xlabel("Survey Year")
-    plt.tight_layout()
-
-    if save_path:
-        plt.savefig(save_path)
-    else:
-        plt.show()
-
-
-@log_plot_saving
-def plot_reported_bafoeg_amounts_over_time(df: pd.DataFrame, save_path: str | None = None):
-    """
-    Plot the average reported BAföG amount (plc0168_h) over survey years.
+    Plots a variable from a DataFrame based on the plot_type.
     
-    Parameters:
-    - df: DataFrame containing 'syear' and 'plc0168_h'
-    - save_path: Optional file path to save the plot instead of displaying it
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The data source.
+    var : str
+        Variable to plot.
+    plot_type : str
+        One of 'scatter', 'pdf', or 'timeline'.
+    groupby : str or list, optional
+        Column(s) to group by (for timeline).
+    timevar : str, optional
+        Time variable on x-axis.
+    hue : str, optional
+        Variable to color by.
+    save_path : str, optional
+        If given, saves the plot to this path instead of displaying it.
+    dpi : int
+        Resolution of the saved figure.
+    drop_zeros : bool
+        Whether to drop rows where var == 0.
+    kwargs : dict
+        Additional keyword arguments passed to seaborn.
     """
-    # Filter to valid (non-missing) amounts
-    valid = df[df["plc0168_h"].notna()]
+    # Drop NaNs and optionally zeros
+    df = df.dropna(subset=[var])
+    if drop_zeros:
+        df = df[df[var] != 0]
 
-    # Group by year and calculate mean
-    grouped = valid.groupby("syear")["plc0168_h"].mean().reset_index()
+    plt.figure()
 
-    # Plot
-    plt.figure(figsize=(10, 5))
-    sns.lineplot(
-        data=grouped,
-        x="syear",
-        y="plc0168_h",
-        marker="o"
-    )
+    if plot_type == 'scatter':
+        assert timevar is not None, "Need timevar for scatterplot."
+        sns.scatterplot(data=df, x=timevar, y=var, hue=hue, **kwargs)
+        plt.title(f'Scatterplot of {var} over {timevar}')
+        
+    elif plot_type == 'pdf':
+        sns.histplot(df[var], kde=True, stat='density', **kwargs)
+        plt.title(f'PDF of {var}')
+        
+    elif plot_type == 'timeline':
+        assert timevar is not None, "Need timevar for timeline plot."
+        if groupby:
+            grouped = df.groupby([timevar, groupby])[var].mean().reset_index()
+            sns.lineplot(data=grouped, x=timevar, y=var, hue=groupby, **kwargs)
+        else:
+            grouped = df.groupby(timevar)[var].mean().reset_index()
+            sns.lineplot(data=grouped, x=timevar, y=var, **kwargs)
+        plt.title(f'Mean {var} over time')
 
-    plt.title("Average Reported BAföG Amount Over Time")
-    plt.ylabel("Reported Amount (EUR per month)")
-    plt.xlabel("Survey Year")
+    else:
+        raise ValueError(f"Unknown plot_type: {plot_type}")
+
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path)
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=dpi)
+        plt.close()
     else:
         plt.show()
-
