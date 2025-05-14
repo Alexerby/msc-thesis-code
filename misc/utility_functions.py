@@ -109,18 +109,21 @@ def _next_available_path(base_filename: str, ext: str, results_key: str) -> Path
 def export_tables(
         tables: dict[str, pd.DataFrame],
         base_name: str = "bafoeg_results",
-        results_key: str = "dataframes"
+        results_key: str = "dataframes",
+        output_path: str | None = None
 ):
     """
-    Save each DataFrame in `tables` to its own sheet in one workbook,
-    using the configured results directory and avoiding overwrite.
+    Save each DataFrame in `tables` to its own sheet in one Excel workbook.
+    If `output_path` is given, save directly there. Otherwise, generate a path
+    using the configured results directory and avoid overwriting existing files.
     """
-    path = _next_available_path(base_name, ".xlsx", results_key)
+    if output_path is None:
+        path = _next_available_path(base_name, ".xlsx", results_key)
+    else:
+        path = output_path
+
     with pd.ExcelWriter(path, engine="xlsxwriter") as xl:
         for sheet, frame in tables.items():
             frame.to_excel(xl, sheet_name=sheet[:31], index=False)  # Excel max sheet name = 31 chars
     print(f"✅ Excel workbook written → {path}")
-
-
-
 

@@ -1,5 +1,6 @@
-import pandas as pd
 import os
+import pandas as pd
+
 from pathlib import Path
 
 from pipeline.build import BafoegPipeline
@@ -32,37 +33,40 @@ def get_output_paths():
 
 
 
-def load_data(df_name: str, source: str = "pipeline", parquet_dir: str | Path = "~/Downloads/bafoeg_results") -> pd.DataFrame:
+def load_data(
+    df_name: str,
+    from_parquet: bool = False,
+    parquet_dir: str = "~/Downloads/BAföG Results/parquets"
+) -> pd.DataFrame:
     """
-    Load BAföG data either from the pipeline or from cached Parquet files.
+    Load student-level data either from a precomputed Parquet file or by building the full pipeline.
 
-    Parameters
-    ----------
-    df_name : str
-        One of "students", "parents", "siblings", "bafoeg_calculations"
-    source : str
-        Either "pipeline" (default) or "parquet"
-    parquet_dir : str or Path
-        Path to directory with precomputed parquet files (default: ~/Downloads/bafoeg_results)
+    Args:
+        df_name (str): The name of the DataFrame to return.
+        from_parquet (bool): If True, load from a Parquet file instead of rebuilding the pipeline.
+        parquet_dir (str): Directory where Parquet files are stored.
 
-    Returns
-    -------
-    pd.DataFrame
+    Returns:
+        pd.DataFrame: The requested DataFrame.
     """
-    if source == "pipeline":
+    if from_parquet:
+        expanded_dir = os.path.expanduser(parquet_dir)
+        path = os.path.join(expanded_dir, f"{df_name}.parquet")
+
+        if not os.path.exists(path):
+            available = os.listdir(expanded_dir)
+            raise FileNotFoundError(
+                f"Parquet file not found: {path}\nAvailable files in '{expanded_dir}':\n{available}"
+            )
+
+        return pd.read_parquet(path)
+    else:
         loaders = LoaderRegistry()
         loaders.load_all()
         pipeline = BafoegPipeline(loaders)
         tables = pipeline.build()
+
+        if df_name not in tables:
+            raise KeyError(f"'{df_name}' not found in pipeline outputs. Available keys: {list(tables.keys())}")
+
         return tables[df_name]
-
-    elif source == "parquet":
-        parquet_dir = Path(os.path.expanduser(parquet_dir))
-        file_path = parquet_dir / f"{df_name}.parquet"
-        if not file_path.exists():
-            raise FileNotFoundError(f"{file_path} not found. Run export first.")
-        return pd.read_parquet(file_path)
-
-    else:
-        raise ValueError(f"Unsupported source '{source}'. Use 'pipeline' or 'parquet'.")
-

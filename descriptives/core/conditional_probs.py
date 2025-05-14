@@ -1,21 +1,17 @@
 import pandas as pd
 import numpy as np
 from descriptives.helpers import load_data
+from tabulate import tabulate
 
 
 def compute_conditional_probs_by_year(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute conditional probabilities Pr(R=r | M=m) for all combinations (r,m) in {0,1}²,
-    grouped by survey year.
-
-    Assumes:
-    - 'theoretical_bafög' (float): model eligibility (M = 1 if > 0)
-    - 'receives_bafög' (0/1 or pd.NA): reported receipt (R)
-    - 'syear' is present
+    grouped by survey year, expressed as percentages (0–100).
     """
     df = df.copy()
     df["M"] = (df["theoretical_bafög"] > 0).astype(int)
-    df["R"] =  df["plc0167_h"]
+    df["R"] = df["plc0167_h"]
     df = df.dropna(subset=["R", "syear"])
 
     results = []
@@ -27,7 +23,7 @@ def compute_conditional_probs_by_year(df: pd.DataFrame) -> pd.DataFrame:
             total = len(g)
             for r in [0, 1]:
                 key = f"P(R={r} | M={m})"
-                prob = (g["R"] == r).mean() if total > 0 else np.nan
+                prob = 100 * (g["R"] == r).mean() if total > 0 else pd.NA
                 row[key] = prob
         results.append(row)
 
@@ -35,14 +31,11 @@ def compute_conditional_probs_by_year(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def main():
-    df = load_data("bafoeg_calculations", source="parquet")
+    df = load_data("bafoeg_calculations", from_parquet=True)
     cond_probs_df = compute_conditional_probs_by_year(df)
 
     print("\n📊 Conditional probabilities grouped by `syear`:\n")
-    print(cond_probs_df.to_string(index=False, float_format="%.3f"))
-
-    # Optionally export to CSV
-    # cond_probs_df.to_csv("outputs/conditional_probs_by_year.csv", index=False)
+    print(tabulate(cond_probs_df, headers="keys", tablefmt="github", floatfmt=".3f"))
 
 
 if __name__ == "__main__":
