@@ -11,13 +11,16 @@ import pandas as pd
 
 from loaders.registry import LoaderRegistry
 
-# Modules that expose `create_dataframe()`
-from . import students
-from . import bafoeg_calculations
-from . import parents
-from . import siblings
-from . import parents_joint
-from . import siblings_joint
+# Modules that expose `create_dataframe()` for each dataframe
+from . import (
+        students,
+        bafoeg_calculations,
+        parents,
+        siblings,
+        parents_joint, 
+        siblings_joint,
+        assets
+    )
 
 
 from pipeline.soep_bundle import SOEPDataBundle
@@ -49,7 +52,10 @@ class BafoegPipeline:
         parents_df = self._build_parents_df(students_df, data, policy, siblings_df)
         parents_joint_df = self._build_parents_joint_df(parents_df, data, policy, siblings_joint_df)
 
-        # STEP 4: Final BAföG calculation (based on students_df)
+        # STEP 4: Build assets view
+        assets_df = self._build_assets_df(students_df, data, policy)
+
+        # STEP 5: Final BAföG calculation (based on students_df)
         bafoeg_df = self._build_bafoeg_df(students_df, data, policy, parents_joint_df)
 
 
@@ -59,6 +65,7 @@ class BafoegPipeline:
             "siblings_joint": siblings_joint_df,
             "parents": parents_df,
             "parents_joint": parents_joint_df,
+            "assets": assets_df,
             "bafoeg_calculations": bafoeg_df,
         }
 
@@ -72,62 +79,59 @@ class BafoegPipeline:
         return students.create_dataframe(data, policy=policy)
 
 
+    def _build_assets_df(self, students_df: pd.DataFrame, data: SOEPDataBundle, policy: PolicyTableBundle) -> pd.DataFrame:
+        minimal_df = students_df.loc[:, ["pid", "syear"]].copy()
+        return assets.create_dataframe(
+            minimal_df,
+            students_df=students_df,
+            policy=policy,
+            data=data
+        )
+
+
     # Siblings 
     def _build_siblings_df(self, students_df, data: SOEPDataBundle, policy: PolicyTableBundle) -> pd.DataFrame:
-        """
-        all sibling-allowance logic lives here => num_eligible_siblings, sibling_allowance_total
-        """
         return siblings.create_dataframe(students_df, data, policy)
 
 
     def _build_siblings_joint_df(self, siblings_df: pd.DataFrame, data: SOEPDataBundle, policy: PolicyTableBundle) -> pd.DataFrame:
-        return siblings_joint.create_dataframe(
-                siblings_df=siblings_df,
-                data=data, 
-                policy=policy
-        )
+        return siblings_joint.create_dataframe(siblings_df=siblings_df, data=data, policy=policy)
 
 
     # Parents
     def _build_parents_df(self, students_df, data: SOEPDataBundle, policy: PolicyTableBundle, siblings_df: pd.DataFrame) -> pd.DataFrame:
-
         return parents.create_dataframe(
-            students_df=students_df,
-            data=data,
-            policy=policy,
-        )
+            students_df=students_df, data=data, policy=policy)
 
 
-    def _build_parents_joint_df(self, parents_df: pd.DataFrame, 
-                                data: SOEPDataBundle, 
-                                policy: PolicyTableBundle, 
-                                siblings_df: pd.DataFrame) -> pd.DataFrame:
+    def _build_parents_joint_df(
+        self,
+        parents_df: pd.DataFrame, 
+        data: SOEPDataBundle, 
+        policy: PolicyTableBundle, 
+        siblings_df: pd.DataFrame
+    ) -> pd.DataFrame:
         return parents_joint.create_dataframe(
-                parents_df=parents_df,
-                data=data, 
-                policy=policy,
-                siblings_joint_df=siblings_df
+            parents_df=parents_df,
+            data=data, 
+            policy=policy,
+            siblings_joint_df=siblings_df
         )
     
-
     # ------------- final BAföG calculation ------------
     def _build_bafoeg_df(
         self,
-        base_df: pd.DataFrame, # which is the students_df
-        data: SOEPDataBundle,
-        policy: PolicyTableBundle,
+        students_df: pd.DataFrame, 
+        data: SOEPDataBundle, 
+        policy: PolicyTableBundle, 
         parents_joint_df: pd.DataFrame
     ) -> pd.DataFrame:
         """Apply BAföG calculations to the student dataset."""
-        cols = ["pid", "syear", "lives_at_home", "excess_income"]
-
-        return (
-            base_df.loc[:, cols].copy()
-            .rename(columns={"excess_income": "excess_income_stu"})
-            .pipe(
-                bafoeg_calculations.create_dataframe,
-                policy=policy,
-                data=data,
-                parents_joint_df = parents_joint_df
-            )
+        minimal_df = students_df.loc[:, ["pid", "syear"]].copy()
+        return bafoeg_calculations.create_dataframe(
+            minimal_df,
+            students_df=students_df,
+            policy=policy,
+            data=data,
+            parents_joint_df=parents_joint_df
         )

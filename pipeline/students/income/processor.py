@@ -45,7 +45,7 @@ def add_income(df: pd.DataFrame, data: SOEPDataBundle, policy: PolicyTableBundle
             method="default",
             deduction_type="rate",
             forward_fill=True,
-            cap=17_200,
+            cap=17_200, #TODO: Cap probably not static over years
             drop_deduction_column=True
         )
 

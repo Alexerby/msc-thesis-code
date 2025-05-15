@@ -17,55 +17,65 @@ import numpy as np
 
 
 def merge_need_amounts(
-    df: pd.DataFrame, # Based on students_df copied in build.py
+    df: pd.DataFrame,
+    students_df: pd.DataFrame,
     need_table: pd.DataFrame,
     insurance_table: pd.DataFrame,
 ) -> pd.DataFrame:
     """
     Add statutory BAföG need components to the student DataFrame.
 
-    This function merges statutory tables (§13 and §13a BAföG) to compute 
-    the student's total base financial need for a given year, based on:
-      - base need amount (living with/away from parents),
-      - housing allowance, and
-      - health + long-term care insurance supplement.
-
-    Components added:
-      - base_need
-      - housing_allowance
-      - insurance_supplement
-      - total_base_need
-
-    Intermediate variables used for computation (e.g. `lives_at_home`, 
-    statutory thresholds) are dropped before return.
+    This function:
+    - Merges 'lives_at_home' from students_df using ['pid', 'syear']
+    - Applies §13 (base need + housing) and §13a (insurance supplement)
+    - Computes total need: base + housing + insurance
 
     Parameters
     ----------
     df : pd.DataFrame
-        Input DataFrame containing student records with at least 
-        'pid', 'syear', and 'lives_at_home' columns.
+        Minimal student-year DataFrame (must contain 'pid' and 'syear').
+    students_df : pd.DataFrame
+        Full student-level dataset with 'lives_at_home'.
     need_table : pd.DataFrame
-        Statutory need amounts from §13 BAföG, indexed by validity date.
+        §13 base need table.
     insurance_table : pd.DataFrame
-        Statutory insurance supplements from §13a BAföG, indexed by validity date.
+        §13a insurance supplement table.
 
     Returns
     -------
     pd.DataFrame
-        DataFrame with one row per student-year, enriched with 
-        monthly need components used in BAföG calculations.
+        Input DataFrame enriched with:
+        - base_need
+        - housing_allowance
+        - insurance_supplement
+        - total_base_need
     """
+    if "lives_at_home" not in students_df.columns:
+        raise ValueError("`students_df` must contain 'lives_at_home' column.")
 
-    # Parse statutory tables
+    # Merge 'lives_at_home' status from students_df
+    df = df.merge(
+        students_df[["pid", "syear", "lives_at_home"]],
+        on=["pid", "syear"],
+        how="left",
+        validate="one_to_one"
+    )
+
+    # Parse statutory rules
     need = parse_need_table(need_table)
     ins = parse_insurance_table(insurance_table)
 
+    # Convert year to datetime for validity matching
     df["syear_date"] = pd.to_datetime(df["syear"].astype(str) + "-01-01")
 
+    # Merge statutory components
     df = merge_base_and_housing(df, need)
     df = merge_insurance_supplement(df, ins)
+
+    # Calculate final need values
     df = calculate_need_components(df)
 
+    # Drop intermediate variables
     return df.drop(
         columns=[
             "valid_from", "valid_from_ins", "syear_date",

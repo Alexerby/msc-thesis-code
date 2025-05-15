@@ -32,7 +32,7 @@ def create_dataframe(data: SOEPDataBundle, policy: PolicyTableBundle) -> pd.Data
 
     # Add sociodemographics
     df = add_sociodemographics(df, data)
-    df = filter_age(df, "age", age_limit=35)
+    # df = filter_age(df, "age", age_limit=35) # Removed must in final sample to see take up rates
 
     df = add_income(df, data, policy)
 

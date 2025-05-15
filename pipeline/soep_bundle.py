@@ -5,14 +5,15 @@ from loaders.registry import LoaderRegistry
 @dataclass
 class SOEPDataBundle:
     ppath: pd.DataFrame
+    pl: pd.DataFrame
+    pgen: pd.DataFrame
+    pkal: pd.DataFrame 
     region: pd.DataFrame
     hgen: pd.DataFrame
     bioparen: pd.DataFrame
     biol: pd.DataFrame
-    pl: pd.DataFrame
-    pgen: pd.DataFrame
     biosib: pd.DataFrame 
-    pkal: pd.DataFrame 
+    pwealth: pd.DataFrame
 
     @classmethod
     def from_registry(cls, registry: LoaderRegistry) -> "SOEPDataBundle":
@@ -25,5 +26,6 @@ class SOEPDataBundle:
             pl=registry.pl(),
             pgen=registry.pgen(),
             biosib=registry.biosib(),
-            pkal=registry.pkal()
+            pkal=registry.pkal(),
+            pwealth=registry.pwealth()
         )

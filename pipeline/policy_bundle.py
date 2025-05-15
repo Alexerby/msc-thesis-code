@@ -10,6 +10,7 @@ class PolicyTableBundle:
     social_insurance: pd.DataFrame
     individual_allowance: pd.DataFrame
     allowance_25: pd.DataFrame
+    allowance_29: pd.DataFrame
 
     @classmethod
     def from_statutory_inputs(cls) -> "PolicyTableBundle":
@@ -23,6 +24,7 @@ class PolicyTableBundle:
             needs=load("Basic Allowances - § 13"),
             insurance=load("Basic Allowances - § 13a"),
             allowance_25=load("Basic Allowances - § 25"),
+            allowance_29=load("Basic Allowances - § 29"),
             individual_allowance=load("Basic Allowances - § 23"),
             social_insurance=load("Sozialversicherung - § 21"),
         )

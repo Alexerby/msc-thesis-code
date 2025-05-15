@@ -77,7 +77,7 @@ class DatasetLoader:
 
 class SOEPStatutoryInputs(DatasetLoader):
     def __init__(self, file: Union[str, Path]):
-        super().__init__(file, config_section="self_composed")
+        super().__init__(file, config_section="public_data")
 
 
 class SOEPDataHandler(DatasetLoader):

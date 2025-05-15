@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 from descriptives.helpers import load_data
 from tabulate import tabulate
 
@@ -10,9 +9,9 @@ def compute_conditional_probs_by_year(df: pd.DataFrame) -> pd.DataFrame:
     grouped by survey year, expressed as percentages (0–100).
     """
     df = df.copy()
-    df["M"] = (df["theoretical_bafög"] > 0).astype(int)
-    df["R"] = df["plc0167_h"]
-    df = df.dropna(subset=["R", "syear"])
+    df["M"] = df["theoretical_eligibility"].fillna(0).astype(int)
+    df["R"] = df["received_bafög"].fillna(0).astype(int)
+    df = df.dropna(subset=["syear"])
 
     results = []
 

@@ -79,22 +79,39 @@ _SPEC: Dict[str, Tuple[str, List[str]]] = {
         [
          "pid", 
          "syear", 
-         "kal2a001", 
-         "kal2a002", 
-         "kal2a003", 
-         "kal2a004", 
-         "kal2a005", 
-         "kal2a006", 
-         "kal2a007", 
-         "kal2a008", 
-         "kal2a009", 
-         "kal2a010", 
-         "kal2a011", 
-         "kal2a012", 
 
          "kal2a02",
          "kal2a03_h"
          ], 
+    ),
+
+    "pwealth": (
+        "pwealth",
+        [
+            "pid",
+            "syear",
+
+            # Financial Assets
+            "f0100a", "f0100b", "f0100c", "f0100d", "f0100e",
+
+            # Other Real Estate (Share Net Value)
+            "e0111a", "e0111b", "e0111c", "e0111d", "e0111e",
+
+            # Business Assets
+            "b0100a", "b0100b", "b0100c", "b0100d", "b0100e",
+
+            # Private Insurances (Building loan and insurances)
+            "i0100a", "i0100b", "i0100c", "i0100d", "i0100e",
+
+            # Vehicles
+            "v0100a", "v0100b", "v0100c", "v0100d", "v0100e",
+
+            # Tangible Assets
+            "t0100a", "t0100b", "t0100c", "t0100d", "t0100e",
+
+            # Overall Debts (excluding student loans)
+            "w0011a", "w0011b", "w0011c", "w0011d", "w0011e"
+        ],
     ),
     "bioparen": (
         "bioparen",
@@ -182,13 +199,16 @@ class LoaderRegistry:
         # Person-year survey data: education status, religion, BAföG amount
         return self.load("pl")
 
+
     def biol(self):
         # Long-format biography module: fertility, children, life events
         return self.load("biol")
 
+
     def region(self):
         # Regional info per household: state (bula), district codes, etc.
         return self.load("region")
+
 
     def pequiv(self):
         # Generated person-level transfer/income indicators (e.g., istuy)
@@ -199,12 +219,18 @@ class LoaderRegistry:
         # Generated person-level transfer/income indicators (e.g., istuy)
         return self.load("pkal")
 
+
+    def pwealth(self):
+        # Generated person-level transfer/income indicators (e.g., istuy)
+        return self.load("pwealth")
+
     # ---------------------------------------------------------------------
     # Generated datasets (cleaned/derived variables)
     # ---------------------------------------------------------------------
     def hgen(self):
         # Household-level generated variables: type of household, etc.
         return self.load("hgen")
+
 
     def pgen(self):
         # Person-level generated variables: income, employment status
