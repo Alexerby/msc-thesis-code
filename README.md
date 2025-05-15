@@ -254,7 +254,6 @@ This microsimulation pipeline was developed as part of the MSc thesis:
 **_Unclaimed Aid in the German Student Aid System_**  
 _A Microsimulation of BAföG Eligibility and Non-Take-Up_  
 → [View the thesis LaTeX source](https://github.com/Alexerby/master-thesis-tex)  
-→ [PDF (if public)](https://example.com/thesis.pdf) *(optional)*
 
 The thesis includes formal documentation of the simulation model, data processing methods, and empirical results.
 
