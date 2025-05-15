@@ -239,14 +239,6 @@ MIT License — free to use, modify, and distribute with attribution. See `LICEN
 
 ---
 
-## 🔄 Pipeline Overview
-
-![BAföG Pipeline Diagram](readme-assets/Pipeline Overview.png)
-
-*Figure: End-to-end pipeline overview with grouped raw SOEP sources*
-
----
-
 ## 📄 Related Thesis
 
 This microsimulation pipeline was developed as part of the MSc thesis:
