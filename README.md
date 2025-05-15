@@ -166,7 +166,7 @@ MIT License — free to use, modify, and distribute with attribution. See `LICEN
 
 ## 🔄 Pipeline Overview
 
-![BAföG Pipeline Diagram](readme-assets/Pipeline Overview.png)
+![BAföG Pipeline Diagram](readme-assets/pipeline_overview.png)
 
 *Figure: End-to-end pipeline overview with grouped raw SOEP sources*
 
