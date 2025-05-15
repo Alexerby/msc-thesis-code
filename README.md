@@ -11,7 +11,6 @@ This pipeline supports research on take-up behavior, distributional impacts, and
 * 📦 **Modular architecture**: clear separation of loading, calculation, filtering, and exporting stages.
 * 🧮 **Eligibility engine**: simulates BAföG entitlements based on current legal statutes.
 * 🧲 **Eligibility engine**: simulates BAföG entitlements based on current legal statutes.
->>>>>>> e91370394c1572c6bf2ae890134d683291f6a112
 * 📊 **Descriptive statistics**: supports subgroup analysis and conditional probability reporting.
 * 📤 **Export options**: export results in Excel and Parquet formats.
 * 🔧 **Fully configurable**: paths and parameters set via `config/config.json`.
@@ -90,10 +89,6 @@ msc-thesis-v4/
 ├── public_data/         # Policy parameters, thresholds
 ├── tests/               # Unit tests
 ├── data_handler.py      # High-level pipeline coordinator
-<<<<<<< HEAD
-=======
-└── pyrightconfig.json   # Type checking config
->>>>>>> e91370394c1572c6bf2ae890134d683291f6a112
 ```
 
 ---
@@ -140,11 +135,8 @@ Centralized configuration via `config/config.json`. Define:
 
 ---
 
-<<<<<<< HEAD
 ## 📚 Data and Legal Sources
-=======
 ## 📋 Data and Legal Sources
->>>>>>> e91370394c1572c6bf2ae890134d683291f6a112
 
 The project is based on:
 
@@ -175,7 +167,6 @@ MIT License — free to use, modify, and distribute with attribution. See `LICEN
 
 * DIW Berlin for SOEP-Core data access
 * BMBF and official BAföG publications
-* OpenAI's ChatGPT for development support
 
 ---
 
