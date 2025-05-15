@@ -4,26 +4,34 @@ from ..helpers import load_data
 
 
 def compare_theoretical_and_reported(df: pd.DataFrame) -> pd.DataFrame:
-    """Compare modeled vs. reported BAföG by year with conditional averages and clear labels."""
+    """Compare modeled vs. reported BAföG by year, with over‐estimate_pct added."""
 
     def share_nonzero(series):
         return (series > 0).mean()
 
-    grouped = df.groupby("syear")
+    g = df.groupby("syear")
 
     summary = pd.DataFrame({
-        "avg_theoretical_bafög": grouped.apply(
-            lambda g: g.loc[g["theoretical_bafög"] > 0, "theoretical_bafög"].mean()
+        "avg_theoretical_bafög": g.apply(
+            lambda x: x.loc[x["theoretical_bafög"] > 0, "theoretical_bafög"].mean()
         ),
-        "avg_reported_bafög": grouped.apply(
-            lambda g: g.loc[g["reported_bafög"] > 0, "reported_bafög"].mean()
+        "avg_reported_bafög": g.apply(
+            lambda x: x.loc[x["reported_bafög"] > 0, "reported_bafög"].mean()
         ),
-        "theoretical_take_up_rate": grouped["theoretical_bafög"].apply(share_nonzero),
-        "reported_take_up_rate": grouped["reported_bafög"].apply(share_nonzero),
+        "theoretical_take_up_rate": g["theoretical_bafög"].apply(share_nonzero),
+        "reported_take_up_rate":    g["reported_bafög"].apply(share_nonzero),
     })
 
+    # new: absolute over‐estimate
+    summary["overestimate_rate"] = (
+        summary["theoretical_take_up_rate"]
+        - summary["reported_take_up_rate"]
+    ).round(3)
+
+    # existing ratio for reference
     summary["take_up_ratio"] = (
-        summary["reported_take_up_rate"] / summary["theoretical_take_up_rate"]
+        summary["reported_take_up_rate"]
+        / summary["theoretical_take_up_rate"]
     ).round(3)
 
     return summary.reset_index()
@@ -43,8 +51,25 @@ def reported_bafög_distribution(df: pd.DataFrame) -> pd.DataFrame:
     return summary.reset_index()
 
 
+def summarize_excess(df: pd.DataFrame) -> pd.DataFrame:
+    cols = ["excess_income_stu", "excess_income_par", "excess_income_assets"]
+    summary = []
+
+    for col in cols:
+        nonzero = df[col] > 0
+        summary.append({
+            "source": col,
+            "pct_nonzero": nonzero.mean(),                       # share of rows with >0
+            "mean_excess_all": df[col].mean(),                   # mean excess across everyone
+            "mean_excess_if_pos": df.loc[nonzero, col].mean(),   # mean among just the positives
+            "max_excess": df[col].max()
+        })
+
+    return pd.DataFrame(summary).set_index("source")
+
+
 if __name__ == "__main__":
-    # Load cleaned Parquet data directly
+    # Load cleaned Parquet data directly (once)
     df = load_data("bafoeg_calculations", from_parquet=True)
 
     print("\n### Modeled vs. Reported BAföG by Year")
@@ -54,3 +79,13 @@ if __name__ == "__main__":
     print("\n### Reported BAföG Distribution (reported_bafög > 0)")
     dist = reported_bafög_distribution(df)
     print(tabulate(dist, headers="keys", tablefmt="github", floatfmt=".2f"))
+
+    print("\n### Excess‐Income Summary")
+    excess_summary = summarize_excess(df)
+    # you can either print with tabulate:
+    print(tabulate(excess_summary.reset_index(),
+                   headers="keys",
+                   tablefmt="github",
+                   floatfmt=".2f"))
+    # —or with pandas’ own markdown helper:
+    # print(excess_summary.to_markdown(floatfmt=".2f"))

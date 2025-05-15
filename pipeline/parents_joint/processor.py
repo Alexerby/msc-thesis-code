@@ -45,16 +45,17 @@ def subtract_sibling_deduction(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def merge_sibling_deduction(df: pd.DataFrame, siblings_joint_df: pd.DataFrame) -> pd.DataFrame:
-    return (
-        df.merge(
-            siblings_joint_df[["student_pid", "syear", "joint_income", "num_siblings"]]
+    merged = df.merge(
+        siblings_joint_df[["student_pid", "syear", "joint_income", "num_siblings"]]
             .rename(columns={"joint_income": "sib_deduction"}),
-            on=["student_pid", "syear"],
-            how="left"
-        )
-        .fillna({"sib_deduction": 0, "num_siblings": 0})
-        .infer_objects(copy=False)  # ✅ this handles the dtype issue
+        on=["student_pid", "syear"],
+        how="left"
     )
+    # fill NaNs, then cast to the exact dtypes you want
+    merged["sib_deduction"] = merged["sib_deduction"].fillna(0).astype(float)
+    merged["num_siblings"]  = merged["num_siblings"].fillna(0).astype(int)
+    return merged
+
 
 def base_view(parents_df: pd.DataFrame, policy: PolicyTableBundle) -> pd.DataFrame:
     base = (

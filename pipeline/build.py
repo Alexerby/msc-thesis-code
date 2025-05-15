@@ -56,7 +56,7 @@ class BafoegPipeline:
         assets_df = self._build_assets_df(students_df, data, policy)
 
         # STEP 5: Final BAföG calculation (based on students_df)
-        bafoeg_df = self._build_bafoeg_df(students_df, data, policy, parents_joint_df)
+        bafoeg_df = self._build_bafoeg_df(students_df, parents_joint_df, assets_df, data, policy)
 
 
         return {
@@ -122,16 +122,18 @@ class BafoegPipeline:
     def _build_bafoeg_df(
         self,
         students_df: pd.DataFrame, 
+        parents_joint_df: pd.DataFrame,
+        assets_df: pd.DataFrame,
         data: SOEPDataBundle, 
         policy: PolicyTableBundle, 
-        parents_joint_df: pd.DataFrame
     ) -> pd.DataFrame:
         """Apply BAföG calculations to the student dataset."""
         minimal_df = students_df.loc[:, ["pid", "syear"]].copy()
         return bafoeg_calculations.create_dataframe(
             minimal_df,
             students_df=students_df,
+            parents_joint_df=parents_joint_df,
+            assets_df=assets_df,
             policy=policy,
             data=data,
-            parents_joint_df=parents_joint_df
         )

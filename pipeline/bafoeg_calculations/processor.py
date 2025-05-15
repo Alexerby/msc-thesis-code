@@ -4,83 +4,133 @@ import numpy as np
 from .need_components import merge_need_amounts 
 from .reported_amount import merge_reported_bafög
 from .eligibility_conditions import is_ineligible
+from .data_cleaning import clean_bafög_columns
 
 from pipeline.soep_bundle import SOEPDataBundle
 from pipeline.policy_bundle import PolicyTableBundle
-from .data_cleaning import clean_bafög_columns
-
 
 
 def create_dataframe(
-    df: pd.DataFrame,  # minimal frame: just pid + syear
+    df: pd.DataFrame,
     *,
-    students_df: pd.DataFrame,  # full student data for lookups
+    students_df: pd.DataFrame,
+    parents_joint_df: pd.DataFrame,
+    assets_df: pd.DataFrame,
     policy: PolicyTableBundle,
     data: SOEPDataBundle,
-    parents_joint_df: pd.DataFrame
 ) -> pd.DataFrame:
     """
-    Create a DataFrame containing calculated BAföG need components.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Minimal student DataFrame with at least ['pid', 'syear'].
-        Used as the base for the pipeline.
-    students_df : pd.DataFrame
-        Full student-level DataFrame with variables like 'lives_at_home', 'age', 'excess_income'.
-    policy : PolicyTableBundle
-        Statutory BAföG inputs (needs, insurance).
-    data : SOEPDataBundle
-        SOEP Core input DataFrames (e.g., for reported BAföG).
-    parents_joint_df : pd.DataFrame
-        Aggregated parental income per student.
-
-    Returns
-    -------
-    pd.DataFrame
-        Final student-year DataFrame with calculated BAföG components.
+    Build the BAföG pipeline in five clear steps, then reorder columns so that
+    all excess‐income fields follow total_base_need, and asset excess appears
+    alongside student/parent excess before reported/theoretical outputs.
     """
     out = df.copy()
 
-    # Merge in base need using statutory rules + household type
-    out = merge_need_amounts(out, students_df, policy.needs, policy.insurance)
-
-    # Merge in student and parental excess income
-    out = merge_student_excess_income(out, students_df)
-    out = merge_parental_excess_income(out, parents_joint_df)
-
-    # Merge reported BAföG variables
+    out = _merge_needs(out, students_df, policy)
+    out = _merge_all_excesses(out, students_df, parents_joint_df, assets_df)
     out = merge_reported_bafög(out, data)
+    out = _compute_theoretical_bafög(out, students_df)
 
-    # Optional column reordering (place student excess after need)
-    cols = list(out.columns)
-    if "excess_income_stu" in cols and "total_base_need" in cols:
-        cols.remove("excess_income_stu")
-        insert_at = cols.index("total_base_need") + 1
-        cols.insert(insert_at, "excess_income_stu")
-        out = out[cols]
-
-    # Fill missing values to avoid NaNs
-    out["excess_income_stu"] = out["excess_income_stu"].fillna(0)
-    out["excess_income_par"] = out["excess_income_par"].fillna(0)
-
-    # Apply legal ineligibility logic centrally
-    ineligible = is_ineligible(out, students_df)
-    out["theoretical_bafög"] = np.where(
-        ineligible,
-        0,
-        np.maximum(out["total_base_need"] - (out["excess_income_stu"] + out["excess_income_par"]), 0)
-    )
-
-    # Final eligibility flag: 1 if eligible, 0 otherwise
-    out["theoretical_eligibility"] = (out["theoretical_bafög"] > 0).astype("int")
-
-    # Final cleaning (includes boolean conversions, drops extras)
+    # final clean & reorder
     out = clean_bafög_columns(out)
+
+    desired_order = [
+        # identifying keys
+        "pid", "syear",
+        # need components
+        "base_need", "housing_allowance", "insurance_supplement", "total_base_need",
+        # all excess‐income in logical order
+        "excess_income_stu", "excess_income_par", "excess_income_assets",
+        # reported BAföG
+        "received_bafög", "reported_bafög",
+        # theoretical outputs
+        "theoretical_bafög", "theoretical_eligibility",
+        # any remaining columns...
+    ]
+    # Append any other columns that may follow
+    rest = [c for c in out.columns if c not in desired_order]
+    out = out[desired_order + rest]
+
+    return pd.DataFrame(out)
+
+
+def _merge_needs(
+    df: pd.DataFrame,
+    students_df: pd.DataFrame,
+    policy: PolicyTableBundle
+) -> pd.DataFrame:
+    """Step 1: statutory base‐need + insurance allowances."""
+    return merge_need_amounts(df, students_df, policy.needs, policy.insurance)
+
+
+def _merge_all_excesses(
+    df: pd.DataFrame,
+    students_df: pd.DataFrame,
+    parents_joint_df: pd.DataFrame,
+    assets_df: pd.DataFrame
+) -> pd.DataFrame:
+    """Step 2: bring in student, parental, and asset excess incomes."""
+    out = merge_student_excess_income(df, students_df)
+    out = merge_parental_excess_income(out, parents_joint_df)
+    out = merge_excess_assets(out, assets_df)
+
+    # ensure zeros instead of NaN
+    for col in ("excess_income_stu", "excess_income_par", "excess_income_assets"):
+        out[col] = out.get(col, 0).fillna(0)
 
     return out
 
+
+def _compute_theoretical_bafög(
+    df: pd.DataFrame,
+    students_df: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    Step 4: apply ineligibility, then
+      theoretical = max(total_base_need – sum_of_excesses, 0)
+    """
+    out = df.copy()
+    ineligible = is_ineligible(out, students_df)
+    total_excess = (
+        out["excess_income_stu"]
+      + out["excess_income_par"]
+      + out["excess_income_assets"]
+    )
+
+    out["theoretical_bafög"] = np.where(
+        ineligible,
+        0,
+        np.maximum(out["total_base_need"] - total_excess, 0)
+    )
+    out["theoretical_eligibility"] = (out["theoretical_bafög"] > 0).astype(int)
+    return out
+
+
+def merge_excess_assets(
+    df: pd.DataFrame,
+    assets_df: pd.DataFrame,
+    asset_col: str = "excess_assets",
+    output_col: str = "excess_income_assets"
+) -> pd.DataFrame:
+    """
+    Merge in the precomputed asset‐based excess and rename it consistently.
+    """
+    if asset_col not in assets_df.columns:
+        raise ValueError(f"`assets_df` must contain `{asset_col}`")
+
+    trimmed = (
+        assets_df[["pid", "syear", asset_col]]
+        .rename(columns={asset_col: output_col})
+    )
+
+    out = df.merge(
+        trimmed,
+        on=["pid", "syear"],
+        how="left",
+        validate="one_to_one"
+    )
+    out[output_col] = out[output_col].fillna(0)
+    return out
 
 
 def merge_student_excess_income(
@@ -88,18 +138,14 @@ def merge_student_excess_income(
     students_df: pd.DataFrame
 ) -> pd.DataFrame:
     """
-    Merge student-level excess income from the original students_df into the working pipeline df.
-
-    Expects:
-    - `students_df` contains 'excess_income'
-    - Renames to 'excess_income_stu' for clarity
+    Merge student-level excess income and rename to 'excess_income_stu'.
     """
     if "excess_income" not in students_df.columns:
         raise ValueError("`students_df` must contain 'excess_income'")
 
     return df.merge(
         students_df[["pid", "syear", "excess_income"]]
-        .rename(columns={"excess_income": "excess_income_stu"}),
+                   .rename(columns={"excess_income": "excess_income_stu"}),
         on=["pid", "syear"],
         how="left",
         validate="one_to_one"
@@ -110,17 +156,21 @@ def merge_parental_excess_income(
     df: pd.DataFrame,
     parents_joint_df: pd.DataFrame
 ) -> pd.DataFrame:
-    parents_trimmed = (
+    """
+    Merge parental excess income and rename to 'excess_income_par'.
+    """
+    parents = (
         parents_joint_df
         .rename(columns={
-            "student_pid": "pid",         # align to student DataFrame key
+            "student_pid": "pid",
             "excess_income": "excess_income_par"
         })
         .loc[:, ["pid", "syear", "excess_income_par"]]
     )
 
     return df.merge(
-        parents_trimmed,
+        parents,
         on=["pid", "syear"],
-        how="left"
+        how="left",
+        validate="one_to_one"
     )
