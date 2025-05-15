@@ -67,7 +67,7 @@ This project is intended for research purposes, particularly to study student fi
 
 5. Generate descriptive statistics:
    ```bash
-   python -m descriptives.core.run
+   python3 -m descriptives.core.run
    ```
 
 ---
