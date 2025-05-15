@@ -160,7 +160,6 @@ MIT License — free to use, modify, and distribute with attribution. See `LICEN
 
 - DIW Berlin for SOEP-Core data  
 - BMBF and official BAföG documents  
-- OpenAI's ChatGPT for technical assistance
 
 ---
 
