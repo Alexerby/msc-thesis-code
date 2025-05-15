@@ -1,9 +1,12 @@
 import pandas as pd
 import numpy as np
 
+
+
 from .need_components import merge_need_amounts 
 from .reported_amount import merge_reported_bafög
 from .eligibility_conditions import is_ineligible
+from .filters import clamp_small_theoretical_awards
 from .data_cleaning import clean_bafög_columns
 
 from pipeline.soep_bundle import SOEPDataBundle
@@ -25,14 +28,22 @@ def create_dataframe(
     alongside student/parent excess before reported/theoretical outputs.
     """
     out = df.copy()
-
     out = _merge_needs(out, students_df, policy)
     out = _merge_all_excesses(out, students_df, parents_joint_df, assets_df)
     out = merge_reported_bafög(out, data)
-    out = _compute_theoretical_bafög(out, students_df)
+    
 
-    # final clean & reorder
+    out = _compute_theoretical_bafög(out, students_df, data.pl, data.pgen)
+    out = clamp_small_theoretical_awards(out, threshold=50)
+    out["theoretical_eligibility"] = (out["theoretical_bafög"] > 0).astype(int)
+
+
+    # drop any rows where received=1 but reported=0
+    # out = drop_reported_bafog_inconsistencies(out)
     out = clean_bafög_columns(out)
+    # out = drop_zero_excess_income_par(out)
+
+
 
     desired_order = [
         # identifying keys
@@ -83,14 +94,16 @@ def _merge_all_excesses(
 
 def _compute_theoretical_bafög(
     df: pd.DataFrame,
-    students_df: pd.DataFrame
+    students_df: pd.DataFrame,
+    pl_df: pd.DataFrame,
+    pgen_df: pd.DataFrame
 ) -> pd.DataFrame:
     """
     Step 4: apply ineligibility, then
       theoretical = max(total_base_need – sum_of_excesses, 0)
     """
     out = df.copy()
-    ineligible = is_ineligible(out, students_df)
+    ineligible = is_ineligible(out, students_df, pl_df, pgen_df)
     total_excess = (
         out["excess_income_stu"]
       + out["excess_income_par"]
@@ -102,7 +115,6 @@ def _compute_theoretical_bafög(
         0,
         np.maximum(out["total_base_need"] - total_excess, 0)
     )
-    out["theoretical_eligibility"] = (out["theoretical_bafög"] > 0).astype(int)
     return out
 
 
@@ -171,6 +183,6 @@ def merge_parental_excess_income(
     return df.merge(
         parents,
         on=["pid", "syear"],
-        how="left",
+        how="inner",
         validate="one_to_one"
     )

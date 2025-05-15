@@ -34,3 +34,6 @@ def clean_bafög_columns(df: pd.DataFrame) -> pd.DataFrame:
     df = df[desired_order + remaining_cols]
 
     return df
+
+
+

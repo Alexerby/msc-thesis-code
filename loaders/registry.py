@@ -61,7 +61,7 @@ _SPEC: Dict[str, Tuple[str, List[str]]] = {
          "plc0168_h", 
          "plg0014_v5",  
          "plg0014_v6",  
-         "plg0014_v7"
+         "plg0014_v7",
          ],
     ),
     "pgen": (
@@ -71,7 +71,8 @@ _SPEC: Dict[str, Tuple[str, List[str]]] = {
          "syear", 
          "pglabgro", 
          "pgemplst", 
-         "pgpartnr"
+         "pgpartnr",
+         "pgisced11"
          ], 
     ),
     "pkal": (
@@ -133,7 +134,12 @@ _SPEC: Dict[str, Tuple[str, List[str]]] = {
 
     "biol": (
         "biol",
-        ["pid", "syear", "lb0285"]
+        [
+            "pid", 
+            "syear", 
+            "lb0285",
+            "lb0267_v1"
+        ]
     ),
 }
 

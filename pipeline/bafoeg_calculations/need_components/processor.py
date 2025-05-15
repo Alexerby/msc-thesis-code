@@ -12,6 +12,8 @@ The functions in this module perform time-aligned merges between survey data
 and statutory rates, enabling the computation of total base need per student-year.
 """
 
+import sys
+
 import pandas as pd
 import numpy as np
 
@@ -50,16 +52,12 @@ def merge_need_amounts(
         - insurance_supplement
         - total_base_need
     """
-    if "lives_at_home" not in students_df.columns:
-        raise ValueError("`students_df` must contain 'lives_at_home' column.")
+    required_cols = ["lives_at_home", "age"]
+    if not all(col in students_df.columns for col in required_cols):
+        print(students_df.columns)
+        raise ValueError("`students_df` must contain 'lives_at_home' and 'age' columns.")
 
-    # Merge 'lives_at_home' status from students_df
-    df = df.merge(
-        students_df[["pid", "syear", "lives_at_home"]],
-        on=["pid", "syear"],
-        how="left",
-        validate="one_to_one"
-    )
+
 
     # Parse statutory rules
     need = parse_need_table(need_table)
@@ -73,7 +71,7 @@ def merge_need_amounts(
     df = merge_insurance_supplement(df, ins)
 
     # Calculate final need values
-    df = calculate_need_components(df)
+    df = calculate_need_components(df, students_df)
 
     # Drop intermediate variables
     return df.drop(
@@ -240,7 +238,72 @@ def merge_insurance_supplement(df: pd.DataFrame, ins: pd.DataFrame) -> pd.DataFr
     )
 
 
-def calculate_need_components(df: pd.DataFrame) -> pd.DataFrame:
+
+
+# def calculate_need_components(df: pd.DataFrame, students_df: pd.DataFrame) -> pd.DataFrame:
+#     """
+#     Compute the statutory BAföG need components for each student.
+#
+#     Adds the following columns to the DataFrame:
+#       - base_need: based on whether the student lives at home
+#       - housing_allowance: same conditional logic as base need
+#       - insurance_supplement: sum of mandatory health (KV) and LTC (PV) contributions
+#       - total_base_need: sum of all three components
+#
+#     Also zeroes out insurance supplement for students who are:
+#       - under age 27
+#       - and living at home (assumed to be family-insured)
+#
+#     Assumes the following columns are present:
+#       - lives_at_home
+#       - base_need_parent, base_need_away
+#       - housing_with_parents, housing_away
+#       - kv_stat_mand, pv_stat_mand
+#       - age (from students_df, not necessarily in df)
+#     
+#     Returns:
+#         DataFrame with new component columns added.
+#     """
+#
+#     # Temporarily bring in ["age", "lives_at_home"] from students_df
+#     df = df.merge(
+#         students_df[["pid", "syear", "age", "lives_at_home"]],
+#         on=["pid", "syear"],
+#         how="left"
+#     )
+#     # Set base need depending on living situation
+#     df["base_need"] = np.where(
+#         df["lives_at_home"], df["base_need_parent"], df["base_need_away"]
+#     )
+#
+#     # Set housing allowance similarly
+#     df["housing_allowance"] = np.where(
+#         df["lives_at_home"], df["housing_with_parents"], df["housing_away"]
+#     )
+#
+#
+#     # Assume family insurance for students under 27 who live at home
+#     mask_family_insured = (df["lives_at_home"]) & (df["age"] < 27)
+#     df["kv_stat_mand"] = np.where(mask_family_insured, 0, df["kv_stat_mand"])
+#     df["pv_stat_mand"] = np.where(mask_family_insured, 0, df["pv_stat_mand"])
+#
+#     # Total insurance supplement
+#     df["insurance_supplement"] = (
+#         df["kv_stat_mand"].fillna(0) + df["pv_stat_mand"].fillna(0)
+#     )
+#
+#     # Total base need
+#     df["total_base_need"] = (
+#         df["base_need"].fillna(0)
+#         + df["housing_allowance"].fillna(0)
+#         + df["insurance_supplement"].fillna(0)
+#     )
+#
+#     # Drop age to avoid polluting the downstream pipeline
+#     return df.drop(columns=["age", "lives_at_home"])
+
+
+def calculate_need_components(df: pd.DataFrame, students_df) -> pd.DataFrame:
     """
     Compute the statutory BAföG need components for each student.
 
@@ -259,6 +322,13 @@ def calculate_need_components(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with new component columns added.
     """
+    # Temporarily bring in ["age", "lives_at_home"] from students_df
+    df = df.merge(
+        students_df[["pid", "syear", "age", "lives_at_home"]],
+        on=["pid", "syear"],
+        how="left"
+    )
+
     df["base_need"] = np.where(
         df["lives_at_home"], df["base_need_parent"], df["base_need_away"]
     )
@@ -275,4 +345,4 @@ def calculate_need_components(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-    return df
+    return df.drop(columns=["age", "lives_at_home"])

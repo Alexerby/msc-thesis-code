@@ -4,7 +4,7 @@ import numpy as np
 from pipeline.soep_bundle import SOEPDataBundle
 from pipeline.policy_bundle import PolicyTableBundle
 from pipeline.common.processor_deductions import apply_entity_allowances
-
+from pipeline.common.filters import drop_zero_rows
 
 def create_dataframe(
     parents_df: pd.DataFrame,
@@ -20,6 +20,7 @@ def create_dataframe(
         .pipe(merge_sibling_deduction, siblings_joint_df=siblings_joint_df)
         .pipe(subtract_sibling_deduction)
         .pipe(apply_additional_allowance)
+        .pipe(drop_zero_rows, "joint_income")
     )
 
 

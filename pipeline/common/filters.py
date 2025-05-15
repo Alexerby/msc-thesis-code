@@ -1,9 +1,12 @@
 import pandas as pd
 
 
-def filter_age(df: pd.DataFrame, col_name: str, age_limit: int = 35):
+def filter_age(df: pd.DataFrame, col_name: str, min_age: int = None, max_age: int = None):
     out = df.copy()
-    out = out[out[col_name] < age_limit]
+    if min_age is not None:
+        out = out[out[col_name] >= min_age]
+    if max_age is not None:
+        out = out[out[col_name] <= max_age]
     return out
 
 
@@ -62,32 +65,18 @@ def filter_students(
 
 
 
-# def filter_parents(df: pd.DataFrame, sociodemographics: pd.DataFrame) -> pd.DataFrame:
-#     """
-#     Keep only individuals who are parents of students in the sample.
-#
-#     Parameters:
-#     - df: Full ppath DataFrame
-#     - sociodemographics: DataFrame containing fnr and mnr columns
-#
-#     Returns:
-#     - Subset of df where pid is either an fnr or mnr of a student
-#     """
-#     valid_pids = sociodemographics[["fnr", "mnr"]].stack().dropna().unique().tolist()
-#     return df[df["pid"].isin(valid_pids)].copy()
-#
-#
-#
-# def filter_zero_income_observations(df: pd.DataFrame) -> pd.DataFrame:
-#     """
-#     Removes rows where both excess_income_parents and excess_income_student are exactly 0.
-#
-#     Parameters:
-#         df (pd.DataFrame): The DataFrame with income columns.
-#
-#     Returns:
-#         pd.DataFrame: Filtered DataFrame excluding unrealistic zero-income cases.
-#     """
-#     condition = (df["excess_income_parents"] == 0) & (df["excess_income_student"] == 0)
-#     return df[~condition].copy()
-#
+
+def drop_zero_rows(df: pd.DataFrame, col_name: str) -> pd.DataFrame:
+    """
+    Remove all rows where parental excess income is zero.
+    
+    Parameters:
+    - df: A pandas DataFrame containing the 'excess_income_par' column.
+    
+    Returns:
+    - A cleaned DataFrame with only rows where excess_income_par ≠ 0.
+    """
+    # Filter out rows where excess_income_par is 0
+    df_cleaned = df[df[col_name] != 0].copy()
+    
+    return pd.DataFrame(df_cleaned)

@@ -59,7 +59,7 @@ def merge_income(
     )
 
     # Apply winsorization at upper 2.5% tail
-    out = winsorize_upper_tail(out, 0.05)
+    # out = winsorize_upper_tail(out, 0.05)
 
     return out
 

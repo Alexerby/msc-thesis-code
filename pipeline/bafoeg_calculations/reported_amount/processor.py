@@ -63,43 +63,36 @@ def merge_reported_bafög_receipt(
 
 def clean_plc0167_h(pl_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Clean the BAföG receipt indicator variable 'plc0167_h' by retaining only valid, 
-    interpretable responses and setting all others to missing.
+    Clean and binarize the BAföG receipt indicator 'plc0167_h' so that:
+      -  1 means “received”  → 1
+      - -2 means “does not apply” (not receiving) → 0
+      - all other codes (−1, −3…−8, NaN) are dropped
 
-    Valid values retained:
-    - 1 : Respondent explicitly reported receiving BAföG, a scholarship, 
-          or vocational training support.
-    - -2: Respondent was presented with the question and explicitly did 
-          not check the box for BAföG-related income — i.e., they do not receive it.
-
-    As documented (see SOEP Survey Paper 1256, p. 75), -2 represents a valid 
-    "does not apply" response resulting from the respondent's answer, 
-    not a structural survey skip.
-
-    All other codes (e.g., -1, -3 to -8) are treated as invalid or ambiguous:
-    - -1 : No answer / refused
-    - -3 to -8 : Implausible or structurally missing due to questionnaire routing or versioning
-
-    These are set to missing (NA) to avoid bias or misclassification.
-
-    Parameters:
-    - pl_df (pd.DataFrame): The 'pl' dataset containing raw person-level income variables.
-
-    Returns:
-    - pd.DataFrame: A copy of the dataset with 'plc0167_h' cleaned and non-informative
-      values replaced with pd.NA.
+    Returns a DataFrame with only pid, syear, and cleaned plc0167_h.
     """
     pl = pl_df.copy()
 
-    # Retain only valid responses; set others to missing (NA)
-    valid_values = [1, -2]
-    pl["plc0167_h"] = pl["plc0167_h"].where(pl["plc0167_h"].isin(valid_values), pd.NA)
+    # Map only the codes we want, everything else → <NA>
+    pl["plc0167_h"] = pl["plc0167_h"].map({1: 1, -2: 0})
 
-    # Map to 0/1
-    value_map = {1: 1, -2: 0}
-    pl["plc0167_h"] = pl["plc0167_h"].map(value_map)
+    # Drop any rows where plc0167_h is missing (i.e. codes other than 1 or -2)
+    pl = pl.dropna(subset=["plc0167_h"])
 
-    return pl
+    # Ensure integer dtype
+    pl["plc0167_h"] = pl["plc0167_h"].astype(int)
+
+    return pd.DataFrame(pl[["pid", "syear", "plc0167_h"]])
+
+
+def reconcile_received_with_reported(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Wherever reported_bafög == 0, force received_bafög to 0.
+    """
+    out = df.copy()
+    # any “false positive” received → overwrite to zero
+    mask = out["reported_bafög"] == 0 # amount
+    out.loc[mask, "received_bafög"] = 0 # 0/1
+    return out
 
 
 def clean_plc0168_h(pl_df: pd.DataFrame) -> pd.DataFrame:
