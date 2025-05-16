@@ -134,8 +134,6 @@ Centralized configuration via `config/config.json`. Define:
 * Scenario-specific settings
 
 ---
-
-## 📚 Data and Legal Sources
 ## 📋 Data and Legal Sources
 
 The project is based on:
