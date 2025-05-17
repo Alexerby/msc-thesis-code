@@ -8,11 +8,16 @@ from misc.utility_functions import load_project_config
 from loaders.registry import LoaderRegistry
 
 
-def get_output_paths():
+def get_output_paths(which: str = None):
     """
-    Load config and prepare output directories for saving income plots.
+    Load config and prepare output directories.
+    Optionally return just one subdirectory if `which` is specified.
+
+    Parameters:
+        which (str): One of ['income_figures_dir', 'pdf_dir', 'excess_income_dir']
+
     Returns:
-        dict with 'income_figures_dir', 'pdf_dir', and 'excess_income_dir' as Path objects.
+        dict or Path: Either the full dict or just the requested Path
     """
     config = load_project_config()
     figures_dir = Path(os.path.expanduser(config["paths"]["results"]["figures"]))
@@ -20,16 +25,20 @@ def get_output_paths():
     pdf_dir = income_figures_dir / "pdfs"
     excess_income_dir = income_figures_dir / "excess_income"
 
-    income_figures_dir.mkdir(parents=True, exist_ok=True)
-    pdf_dir.mkdir(parents=True, exist_ok=True)
-    excess_income_dir.mkdir(parents=True, exist_ok=True)
+    for d in [income_figures_dir, pdf_dir, excess_income_dir]:
+        d.mkdir(parents=True, exist_ok=True)
 
-    return {
+    paths = {
         "income_figures_dir": income_figures_dir,
         "pdf_dir": pdf_dir,
         "excess_income_dir": excess_income_dir,
     }
 
+    if which:
+        if which not in paths:
+            raise ValueError(f"Invalid output path key: {which}")
+        return paths[which]
+    return paths
 
 
 

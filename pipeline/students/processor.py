@@ -32,8 +32,13 @@ def create_dataframe(data: SOEPDataBundle, policy: PolicyTableBundle) -> pd.Data
 
     # Add sociodemographics
     df = add_sociodemographics(df, data)
-    # df = filter_full_time_workers(df, data.biol)
+
+    # Filter the sample for only people where 
+    # both parents are available in the SOEP-Core 
+    # dataset
     df = filter_parents(df, "both")
+
+    # Filter for students above the age of 18
     df = filter_age(df, "age", min_age=18)
 
     df = add_income(df, data, policy)

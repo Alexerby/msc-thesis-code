@@ -61,6 +61,8 @@ def create_dataframe(
     # Append any other columns that may follow
     rest = [c for c in out.columns if c not in desired_order]
     out = out[desired_order + rest]
+    
+
 
     return pd.DataFrame(out)
 
@@ -186,3 +188,8 @@ def merge_parental_excess_income(
         how="inner",
         validate="one_to_one"
     )
+
+def add_weight_col(df: pd.DataFrame, ppath_df: pd.DataFrame):
+    ppath_df_subset = ppath_df[["pid", "syear", "phrf"]]
+    df = df.merge(ppath_df_subset, on = ["pid", "syear"])
+    return df

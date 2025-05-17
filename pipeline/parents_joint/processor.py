@@ -59,17 +59,31 @@ def merge_sibling_deduction(df: pd.DataFrame, siblings_joint_df: pd.DataFrame) -
 
 
 def base_view(parents_df: pd.DataFrame, policy: PolicyTableBundle) -> pd.DataFrame:
+    """
+    Constructs the base parental income view by aggregating net monthly income
+    from contributing parents and counting only those who contribute financially.
+    Now also computes average, min, and max parental education per student.
+    """
+    contributing = parents_df[parents_df["net_monthly_income"] > 0]
+
+    # Convert ISCED to numeric (safe, in case of stringy merges)
+    contributing["pgisced11"] = pd.to_numeric(contributing["pgisced11"], errors="coerce")
+
     base = (
-        parents_df
+        contributing
         .groupby(["student_pid", "syear"])
         .agg(
             joint_income=("net_monthly_income", "sum"),
             num_parents=("pid", "count"),
+            # You can compute any/all of these:
+            isced_mean=("pgisced11", "mean"),
+            # Optionally: most frequent (mode)
+            # isced_mode=('pgisced11', lambda x: x.mode().iloc[0] if not x.mode().empty else pd.NA),
         )
         .reset_index()
     )
 
-    # Apply single allowance
+    # Apply single-parent allowance
     single = base.query("num_parents == 1").pipe(
         apply_entity_allowances,
         allowance_table=policy.allowance_25.rename(columns={
@@ -83,7 +97,7 @@ def base_view(parents_df: pd.DataFrame, policy: PolicyTableBundle) -> pd.DataFra
         output_col="joint_income_less_ba"
     )
 
-    # Apply joint allowance
+    # Apply two-parent allowance
     joint = base.query("num_parents == 2").pipe(
         apply_entity_allowances,
         allowance_table=policy.allowance_25.rename(columns={

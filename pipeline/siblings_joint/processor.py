@@ -39,6 +39,7 @@ def base_view(siblings_df: pd.DataFrame, policy: PolicyTableBundle) -> pd.DataFr
         .agg(
             joint_income=("excess_income", "sum"),
             num_siblings=("pid", "count"),
+            any_sibling_bafog=("plc0167_h", lambda x: int((x == 1).any()))
         )
         .reset_index()
     )

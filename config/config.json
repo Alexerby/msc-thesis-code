@@ -2,6 +2,7 @@
     "paths": {
         "data": {
             "soep": "~/Data/SOEP-Core/CSV/soepdata/",
+            "soep_raw": "~/Data/SOEP-Core/CSV/soepdata/raw/",
             "destatis": "~/Data/Destatis/",
             "public_data": "~/Code/msc-thesis-v4/public_data/",
             "soep_cached": "~/Data/SOEP-Core_cached/"

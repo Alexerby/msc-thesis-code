@@ -1,4 +1,5 @@
 import pandas as pd
+from pandas.core.api import DataFrame
 
 from pipeline.common.processor_sociodemographics import add_age
 
@@ -38,6 +39,7 @@ def create_dataframe(
     return (
         base_view(students_df) 
         .pipe(add_age, ppath_df=data.ppath)
+        .pipe(merge_education_level, data.pgen)
         .pipe(merge_income, pkal_df=data.pkal)
 
         .pipe(
@@ -121,4 +123,52 @@ def base_view(students_df: pd.DataFrame) -> pd.DataFrame:
 
     base_cols = ["pid", "syear", "student_pid", "parent_role"]
 
-    return pd.DataFrame(parents_long[base_cols].reset_index(drop=True))
+    return pd.DataFrame(parents_long[base_cols].reset_index(drop=True)) 
+
+
+
+def harmonize_plg0014(parents_df: pd.DataFrame, pl_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Harmonizes the SOEP plg0014_* variables (education coding) into a single column 'plg0014_harmonized'.
+    Keeps SOEP codes (except sets any negative value to NA).
+    Left merges onto parents_df by 'pid'.
+    """
+    edu_cols = ["plg0014_v5", "plg0014_v6", "plg0014_v7"]
+    
+    # Copy to avoid modifying original
+    pl_df = pl_df.copy()
+    
+    # Harmonize: take the first non-missing value in order
+    pl_df["plg0014_harmonized"] = pl_df[edu_cols].bfill(axis=1).iloc[:, 0]
+    
+    # Set all negative values to pd.NA
+    pl_df.loc[pl_df["plg0014_harmonized"] < 0, "plg0014_harmonized"] = pd.NA
+    
+    # Only keep pid and new column, drop duplicates
+    pl_df = pl_df[["pid", "plg0014_harmonized"]].drop_duplicates(subset="pid")
+    
+    # Left merge onto parents_df by pid
+    out = parents_df.merge(pl_df, on="pid", how="left")
+    return out
+
+
+def merge_education_level(parents_df: pd.DataFrame, pgen_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Merge ISCED-2011 education level (pgisced11) from pgen onto parents_df by pid, forward-filling by person.
+    All negative or invalid codes are set to NA.
+    Keeps column name as 'pgisced11'.
+    """
+    # Copy and clean
+    pgen = pgen_df[["pid", "syear", "pgisced11"]].copy()
+    pgen.loc[pgen["pgisced11"] < 0, "pgisced11"] = pd.NA
+
+    # Sort and forward fill by person over time
+    pgen = pgen.sort_values(["pid", "syear"])
+    pgen["pgisced11"] = pgen.groupby("pid")["pgisced11"].ffill()
+
+    # Keep only the pid, syear, and the forward-filled value
+    pgen = pgen[["pid", "syear", "pgisced11"]].drop_duplicates()
+
+    # Merge onto parents_df by pid and syear
+    out = parents_df.merge(pgen, on=["pid", "syear"], how="left")
+    return out

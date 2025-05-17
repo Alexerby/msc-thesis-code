@@ -32,31 +32,30 @@ class BafoegPipeline:
 
 
     def __init__(self, loaders: LoaderRegistry):
-        self.loaders = loaders
+        self.data = SOEPDataBundle.from_registry(loaders)
+        self.policy = PolicyTableBundle.from_statutory_inputs()
 
 
     # ------------- public API -----------------
     def build(self) -> dict[str, pd.DataFrame]:
-        # Load input data
-        data = SOEPDataBundle.from_registry(self.loaders)
-        policy = PolicyTableBundle.from_statutory_inputs()
+        # Load input self.data
 
         # STEP 1: Build students view
-        students_df = self._build_students_df(data, policy)
+        students_df = self._build_students_df(self.data, self.policy)
 
         # STEP 2: Build siblings view (uncomment if you have logic)
-        siblings_df = self._build_siblings_df(students_df, data, policy)
-        siblings_joint_df = self._build_siblings_joint_df(siblings_df, data, policy)
+        siblings_df = self._build_siblings_df(students_df, self.data, self.policy)
+        siblings_joint_df = self._build_siblings_joint_df(siblings_df, self.data, self.policy)
 
         # STEP 3: Build parents view (optional - if siblings needed, pass that too)
-        parents_df = self._build_parents_df(students_df, data, policy, siblings_df)
-        parents_joint_df = self._build_parents_joint_df(parents_df, data, policy, siblings_joint_df)
+        parents_df = self._build_parents_df(students_df, self.data, self.policy, siblings_df)
+        parents_joint_df = self._build_parents_joint_df(parents_df, self.data, self.policy, siblings_joint_df)
 
         # STEP 4: Build assets view
-        assets_df = self._build_assets_df(students_df, data, policy)
+        assets_df = self._build_assets_df(students_df, self.data, self.policy)
 
         # STEP 5: Final BAföG calculation (based on students_df)
-        bafoeg_df = self._build_bafoeg_df(students_df, parents_joint_df, assets_df, data, policy)
+        bafoeg_df = self._build_bafoeg_df(students_df, parents_joint_df, assets_df, self.data, self.policy)
 
 
         return {

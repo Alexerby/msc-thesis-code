@@ -120,6 +120,37 @@ def print_excess_summary_with_separators(summary: pd.DataFrame):
 
 
 
+def investigate_theoretical_drop(df: pd.DataFrame, year: int = 2022):
+    """
+    Diagnostic summary to investigate why theoretical BAföG drops in a given year.
+    """
+    g = df.groupby("syear")
+    
+    records = []
+    for y, group in g:
+        if y < 2007:  # optional: skip early years
+            continue
+        row = {
+            "syear": y,
+            "n_total": len(group),
+            "n_theoretical_pos": (group["theoretical_bafög"] > 0).sum(),
+            "share_pos": (group["theoretical_bafög"] > 0).mean(),
+            "mean_theoretical": group.loc[group["theoretical_bafög"] > 0, "theoretical_bafög"].mean(),
+            "median_theoretical": group.loc[group["theoretical_bafög"] > 0, "theoretical_bafög"].median(),
+            "max_theoretical": group["theoretical_bafög"].max(),
+            "std_theoretical": group["theoretical_bafög"].std(),
+        }
+        records.append(row)
+
+    df_summary = pd.DataFrame(records).set_index("syear")
+    
+    print("\n### Investigating Theoretical BAföG Drop")
+    print(tabulate(df_summary, headers="keys", tablefmt="github", floatfmt=".2f"))
+
+    if year in df_summary.index:
+        print(f"\n>> Specific notes for {year}:")
+        print(df_summary.loc[year])
+
 if __name__ == "__main__":
     # Load cleaned Parquet data directly (once)
     df = load_data("bafoeg_calculations", from_parquet=True)
@@ -127,12 +158,18 @@ if __name__ == "__main__":
     print("\n### Modeled vs. Reported BAföG by Year")
     result = compare_theoretical_and_reported(df)
     print(tabulate(result, headers="keys", tablefmt="github", floatfmt=".2f"))
+    #
+    # # print("\n### Reported BAföG Distribution (reported_bafög > 0)")
+    # # dist = reported_bafög_distribution(df)
+    # # print(tabulate(dist, headers="keys", tablefmt="github", floatfmt=".2f"))
+    #
+    #
+    # print("\n### Excess‐Income Summary by Year\n")
+    # summary = summarize_excess_by_year(df)
+    # print_excess_summary_with_separators(summary)
 
-    print("\n### Reported BAföG Distribution (reported_bafög > 0)")
-    dist = reported_bafög_distribution(df)
-    print(tabulate(dist, headers="keys", tablefmt="github", floatfmt=".2f"))
 
-
-    print("\n### Excess‐Income Summary by Year\n")
-    summary = summarize_excess_by_year(df)
-    print_excess_summary_with_separators(summary)
+    # investigate_theoretical_drop(df, year=2022)
+    #
+    # print("\n### Summary of Key Inputs in 2022")
+    # print(df[df["syear"] == 2022][["excess_income_stu", "excess_income_par", "excess_income_assets"]].describe())

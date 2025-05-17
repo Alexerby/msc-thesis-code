@@ -2,7 +2,7 @@ from numpy import where
 import pandas as pd
 from typing import Literal
 
-def filter_years(df: pd.DataFrame, start_year: int = 2007, end_year: int = 2022) -> pd.DataFrame:
+def filter_years(df: pd.DataFrame, start_year: int = 2007, end_year: int = 2021) -> pd.DataFrame:
     """
     Filter DataFrame to keep only rows where 'syear' is within the given interval [start_year, end_year].
     

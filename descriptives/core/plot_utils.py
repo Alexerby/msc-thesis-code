@@ -1,6 +1,8 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import os
+
 
 def plot_variable(
     df,
@@ -34,7 +36,7 @@ def plot_variable(
         plt.title(title or f'Scatterplot of {var} over {timevar}')
 
     elif plot_type == 'pdf':
-        sns.histplot(df[var], kde=True, stat='density', **kwargs)
+        sns.histplot(df[var], kde=True, stat='density', color="black", fill=False, **kwargs)
         plt.title(title or f'Distribution of {var}')
 
     elif plot_type == 'timeline':
@@ -44,7 +46,7 @@ def plot_variable(
             sns.lineplot(data=grouped, x=timevar, y=var, hue=groupby, **kwargs)
         else:
             grouped = df.groupby(timevar)[var].mean().reset_index()
-            sns.lineplot(data=grouped, x=timevar, y=var, **kwargs)
+            sns.lineplot(data=grouped, x=timevar, y=var, color="black", **kwargs)
         plt.title(title or f'Mean {var} over time')
 
     else:
@@ -75,33 +77,68 @@ def plot_comparison(
     **kwargs
 ):
     """
-    Plot two variables side by side using the same plot_type ('pdf', 'scatter', or 'timeline').
+    Plot two variables side by side using APA-style aesthetics.
 
     Parameters
     ----------
     df : pd.DataFrame
-        The data to plot.
     var1, var2 : str
         The two variables to compare.
     plot_type : str
         Type of plot: 'pdf', 'scatter', or 'timeline'.
     timevar : str, optional
-        Required for 'scatter' or 'timeline' plots.
     hue : str, optional
-        Hue grouping (passed to seaborn).
     drop_zeros : bool
-        Whether to exclude rows where variable is zero.
     title1, title2 : str
-        Custom plot titles.
     save_path : str, optional
-        If given, saves to disk. Otherwise shows the plot.
     dpi : int
-        Resolution if saving.
     kwargs : dict
-        Extra options for seaborn.
     """
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    # --- APA-style tweaks ---
+    sns.set_theme(style="whitegrid")
+    mpl.rcParams.update({
+        "font.size": 11,
+        "font.family": "sans-serif",
+        "axes.titlesize": 12,
+        "axes.labelsize": 11,
+        "axes.edgecolor": "black",
+        "axes.linewidth": 0.8,
+        "xtick.color": "black",
+        "ytick.color": "black",
+        "xtick.direction": "out",
+        "ytick.direction": "out",
+        "grid.color": "gray",
+        "grid.linestyle": "--",
+        "grid.linewidth": 0.5,
+        "legend.frameon": False,
+        "figure.dpi": dpi,
+    })
 
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
+
+    # --- Determine shared axis limits if plot_type is 'pdf'
+    x_mins, x_maxs, y_maxs = [], [], []
+
+    if plot_type == 'pdf':
+        for var in [var1, var2]:
+            sub = df.dropna(subset=[var])
+            if drop_zeros:
+                sub = sub[sub[var] != 0]
+            if sub.empty:
+                continue
+            x_mins.append(sub[var].min())
+            x_maxs.append(sub[var].max())
+            # Temporarily plot to get y-limit
+            tmp_ax = sns.histplot(sub[var], kde=True, stat="density", element="step", fill=False)
+            y_maxs.append(tmp_ax.get_ylim()[1])
+            plt.cla()  # Clear temporary plot
+
+        xlim = (min(x_mins), max(x_maxs)) if x_mins and x_maxs else None
+        ylim = (0, max(y_maxs)) if y_maxs else None
+    else:
+        xlim, ylim = None, None
+
+    # --- Actual plotting
     for ax, var, title in zip(
         axes, [var1, var2], [title1 or var1, title2 or var2]
     ):
@@ -110,30 +147,60 @@ def plot_comparison(
             sub = sub[sub[var] != 0]
 
         if sub.empty:
-            ax.set_title(f"No data for {var}")
+            ax.set_title(f"No data for {var}", fontstyle="italic")
             continue
 
         if plot_type == 'pdf':
-            sns.histplot(sub[var], kde=True, stat='density', ax=ax, **kwargs)
-            ax.set_title(f"PDF of {title}")
+            sns.histplot(
+                sub[var],
+                kde=True,
+                stat='density',
+                color="black",
+                fill=False,
+                ax=ax,
+                **kwargs
+            )
+            if xlim: ax.set_xlim(xlim)
+            if ylim: ax.set_ylim(ylim)
+            ax.set_title(f"Distribution of {title}")
+
         elif plot_type == 'scatter':
             assert timevar is not None, "timevar required for scatter"
-            sns.scatterplot(data=sub, x=timevar, y=var, hue=hue, ax=ax, **kwargs)
-            ax.set_title(f"Scatter: {title} vs. {timevar}")
+            sns.scatterplot(
+                data=sub,
+                x=timevar,
+                y=var,
+                hue=hue,
+                palette="gray" if hue else None,
+                ax=ax,
+                **kwargs
+            )
+            ax.set_title(f"{title} vs. {timevar}")
+
         elif plot_type == 'timeline':
             assert timevar is not None, "timevar required for timeline"
             grouped = sub.groupby(timevar)[var].mean().reset_index()
-            sns.lineplot(data=grouped, x=timevar, y=var, ax=ax, **kwargs)
+            sns.lineplot(
+                data=grouped,
+                x=timevar,
+                y=var,
+                color="black",
+                ax=ax,
+                **kwargs
+            )
             ax.set_title(f"Mean {title} over time")
+
         else:
             raise ValueError(f"Unknown plot_type: {plot_type}")
 
         ax.set_xlabel(timevar if timevar else var)
         ax.set_ylabel(var)
-
-    plt.tight_layout()
+        ax.grid(True, which="major", linestyle="--", linewidth=0.5)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
     if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         plt.savefig(save_path, dpi=dpi)
         plt.close()
     else:

@@ -57,10 +57,13 @@ def compute_overall_conditional_probs(df: pd.DataFrame) -> pd.DataFrame:
 def main():
     df = load_data("bafoeg_calculations", from_parquet=True)
     cond_probs_df = compute_overall_conditional_probs(df)
+    cond_probs_by_year = compute_conditional_probs_by_year(df)
 
     print("\n📊 Conditional probabilities grouped by `syear`:\n")
-    print(tabulate(cond_probs_df, headers="keys", tablefmt="github", floatfmt=".3f"))
+    print(tabulate(cond_probs_by_year, headers="keys", tablefmt="github", floatfmt=".3f"))
 
+    print("\n📊 Conditional probabilities average over all 'syear':\n")
+    print(tabulate(cond_probs_df, headers="keys", tablefmt="github", floatfmt=".3f"))
 
 if __name__ == "__main__":
     main()

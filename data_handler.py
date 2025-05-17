@@ -56,24 +56,6 @@ class DatasetLoader:
         else:
             raise ValueError(f"Unsupported file type: {filetype}")
 
-    # def load_first_n_rows(self, columns: List[str], n: int = 10000):
-    #     """Load the first n rows of a dataset file."""
-    #     self.data = pd.read_csv(self.file_path, nrows=n, usecols=columns)
-
-    # def filter_data(self, variables: Union[str, List[str]], filter_values: List):
-    #     self.data = cast(pd.DataFrame, self.data)
-    #
-    #     if isinstance(variables, str):
-    #         variables = [variables]
-    #
-    #     for var in variables:
-    #         if var not in self.data.columns:
-    #             raise ValueError(f"Column '{var}' not found in data.")
-    #         before = len(self.data)
-    #         self.data = self.data.loc[~self.data[var].isin(filter_values)].copy()
-    #         after = len(self.data)
-    #         print(f"Filtered '{var}': {before - after} rows removed, {after} remaining.")
-
 
 class SOEPStatutoryInputs(DatasetLoader):
     def __init__(self, file: Union[str, Path]):

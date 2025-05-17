@@ -59,9 +59,13 @@ _SPEC: Dict[str, Tuple[str, List[str]]] = {
          "plh0258_h", 
          "plc0167_h", 
          "plc0168_h", 
+
+         # Education level
          "plg0014_v5",  
          "plg0014_v6",  
          "plg0014_v7",
+
+         "plh0254",
          ],
     ),
     "pgen": (
