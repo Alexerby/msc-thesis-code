@@ -81,8 +81,8 @@ class SOEPStatutoryInputs(DatasetLoader):
 
 
 class SOEPDataHandler(DatasetLoader):
-    def __init__(self, file: Union[str, Path]):
-        super().__init__(file, config_section="soep")
+    def __init__(self, file: Union[str, Path], config_section: str = "soep"):
+        super().__init__(file, config_section=config_section)
 
     def get_cache_path(self) -> Path:
         config_path = get_config_path(Path("config.json"))
