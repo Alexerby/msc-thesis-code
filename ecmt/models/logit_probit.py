@@ -4,7 +4,6 @@ from typing import List, Dict, Optional
 
 from ecmt.parquet_loader import BafoegParquetLoader
 
-
 # === CONFIGURATION ===
 
 DEFAULT_MISSING_CODES = [-1, -2, -3, -8, -9, -99]
@@ -35,7 +34,6 @@ DEFAULT_EXTERNAL_MERGES = [
 ]
 
 DEFAULT_CATEGORICALS = ["migback", "isced_mean",]
-
 
 # === DATA LOADER CLASS ===
 
@@ -96,7 +94,6 @@ class BafoegDataPipeline:
     def get_dataframe(self):
         return self.loader.get()
 
-
 # === FEATURE ENGINEERING UTILITIES ===
 
 def clean_and_impute_categoricals(df, categoricals, missing_codes):
@@ -129,16 +126,6 @@ def add_income_vars(df):
 
 def restrict_to_eligible(df, eligibility_col="theoretical_eligibility", received_col="received_bafög"):
     df = df[df[eligibility_col] == 1].copy() # Copy a df of only theoretically eligible students
-
-
-    # Create new column from received col, making 0/1 switch place. 
-    # -----------------------------------
-    # received_col    non_take_up 
-    #            0              1
-    #            1              0
-    #            0              1
-    #            1              0
-    # -----------------------------------
     df["non_take_up"] = (df[received_col] == 0).astype(int) 
     return df
 
@@ -148,13 +135,21 @@ def run_binary_model(
     df: pd.DataFrame,
     formula: str,
     model_type: str = "logit",
+    cluster_var: Optional[str] = None,
+    cov_type: Optional[str] = None,
     **fit_kwargs
 ):
     model_map = {"logit": sm_logit, "probit": sm_probit}
     if model_type not in model_map:
         raise ValueError(f"Unknown model_type '{model_type}'. Use 'logit' or 'probit'.")
     model = model_map[model_type](formula=formula, data=df)
-    return model.fit(**fit_kwargs)
+    if cluster_var is not None:
+        fit_kwargs['cov_type'] = 'cluster'
+        fit_kwargs['cov_kwds'] = {'groups': df[cluster_var]}
+    elif cov_type is not None:
+        fit_kwargs['cov_type'] = cov_type
+    result = model.fit(**fit_kwargs)
+    return result
 
 # === PIPELINE WRAPPER ===
 
@@ -165,7 +160,9 @@ def full_bafoeg_pipeline(
     categoricals: Optional[List[str]] = None,
     missing_codes: Optional[List[int]] = None,
     Z_vars: Optional[List[str]] = None,
-    B_vars: Optional[List[str]] = None
+    B_vars: Optional[List[str]] = None,
+    cluster_var: Optional[str] = None,
+    cov_type: Optional[str] = None,
 ):
     pipeline = BafoegDataPipeline(
         base_parquet_path=base_parquet_path,
@@ -191,12 +188,23 @@ def full_bafoeg_pipeline(
     formula = "non_take_up ~ " + " + ".join(X_vars)
 
     print("\n=== Fitting LOGIT model ===")
-    result = run_binary_model(df, formula=formula, model_type="logit")
+    result = run_binary_model(df, formula=formula, model_type="logit", cluster_var=cluster_var, cov_type=cov_type)
     print(result.summary())
+    print(f"McFadden's pseudo-R² (logit): {result.prsquared:.4f}")
+    # AME for logit
+    marg_eff_logit = result.get_margeff(at='overall')
+    print("\nLOGIT Average Marginal Effects (AMEs):")
+    print(marg_eff_logit.summary())
 
     print("\n=== Fitting PROBIT model ===")
-    result_probit = run_binary_model(df, formula=formula, model_type="probit")
+    result_probit = run_binary_model(df, formula=formula, model_type="probit", cluster_var=cluster_var, cov_type=cov_type)
     print(result_probit.summary())
+    print(f"McFadden's pseudo-R² (probit): {result_probit.prsquared:.4f}")
+    # AME for probit
+    marg_eff_probit = result_probit.get_margeff(at='overall')
+    print("\nPROBIT Average Marginal Effects (AMEs):")
+    print(marg_eff_probit.summary())
+
     return result, result_probit
 
 # === USAGE ===
@@ -208,5 +216,6 @@ if __name__ == "__main__":
         external_merges=DEFAULT_EXTERNAL_MERGES,
         categoricals=DEFAULT_CATEGORICALS,
         missing_codes=DEFAULT_MISSING_CODES,
-        # You can add or override variable lists as needed!
+        cov_type="HC2"     # <---- Robust SEs, or set cluster_var="pid" for cluster-robust
+        # cluster_var="pid" # (use this instead if you want cluster-robust SEs)
     )
