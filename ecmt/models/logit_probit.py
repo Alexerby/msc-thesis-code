@@ -1,8 +1,12 @@
+from pathlib import Path
 import pandas as pd
+import os
+
 from statsmodels.formula.api import logit as sm_logit, probit as sm_probit
 from typing import List, Dict, Optional
-
 from ecmt.parquet_loader import BafoegParquetLoader
+from ecmt.helpers import load_config
+import joblib
 
 # === CONFIGURATION ===
 
@@ -137,6 +141,7 @@ def run_binary_model(
     model_type: str = "logit",
     cluster_var: Optional[str] = None,
     cov_type: Optional[str] = None,
+    weights=None,
     **fit_kwargs
 ):
     model_map = {"logit": sm_logit, "probit": sm_probit}
@@ -148,7 +153,8 @@ def run_binary_model(
         fit_kwargs['cov_kwds'] = {'groups': df[cluster_var]}
     elif cov_type is not None:
         fit_kwargs['cov_type'] = cov_type
-    result = model.fit(**fit_kwargs)
+    # Pass weights if provided
+    result = model.fit(weights=weights, **fit_kwargs)
     return result
 
 # === PIPELINE WRAPPER ===
@@ -187,8 +193,22 @@ def full_bafoeg_pipeline(
     X_vars = Z_vars + B_vars + D_vars
     formula = "non_take_up ~ " + " + ".join(X_vars)
 
-    print("\n=== Fitting LOGIT model ===")
-    result = run_binary_model(df, formula=formula, model_type="logit", cluster_var=cluster_var, cov_type=cov_type)
+    # === APPLY WEIGHTS ===
+    # Use only non-missing, positive weights
+    if "phrf" not in df.columns:
+        raise ValueError("Column 'phrf' not found in DataFrame! Is it in your base parquet?")
+    df = df[df["phrf"].notna() & (df["phrf"] > 0)].copy()
+    weights = df["phrf"]
+
+    print("\n=== Fitting LOGIT model (with weights) ===")
+    result = run_binary_model(
+        df, 
+        formula=formula, 
+        model_type="logit", 
+        cluster_var=cluster_var, 
+        cov_type=cov_type,
+        weights=weights
+    )
     print(result.summary())
     print(f"McFadden's pseudo-R² (logit): {result.prsquared:.4f}")
     # AME for logit
@@ -196,8 +216,15 @@ def full_bafoeg_pipeline(
     print("\nLOGIT Average Marginal Effects (AMEs):")
     print(marg_eff_logit.summary())
 
-    print("\n=== Fitting PROBIT model ===")
-    result_probit = run_binary_model(df, formula=formula, model_type="probit", cluster_var=cluster_var, cov_type=cov_type)
+    print("\n=== Fitting PROBIT model (with weights) ===")
+    result_probit = run_binary_model(
+        df, 
+        formula=formula, 
+        model_type="probit", 
+        cluster_var=cluster_var, 
+        cov_type=cov_type,
+        weights=weights
+    )
     print(result_probit.summary())
     print(f"McFadden's pseudo-R² (probit): {result_probit.prsquared:.4f}")
     # AME for probit
@@ -210,7 +237,7 @@ def full_bafoeg_pipeline(
 # === USAGE ===
 
 if __name__ == "__main__":
-    full_bafoeg_pipeline(
+    result, result_probit = full_bafoeg_pipeline(
         base_parquet_path="~/Downloads/BAföG Results/parquets/bafoeg_calculations.parquet",
         registry_merges=DEFAULT_REGISTRY_MERGES,
         external_merges=DEFAULT_EXTERNAL_MERGES,
@@ -219,3 +246,10 @@ if __name__ == "__main__":
         cov_type="HC2"     # <---- Robust SEs, or set cluster_var="pid" for cluster-robust
         # cluster_var="pid" # (use this instead if you want cluster-robust SEs)
     )
+
+    # === EXPORT THE MODELS ===
+    config = load_config()
+    model_results_dir = Path(config["paths"]["results"]["model_results"]).expanduser()
+    model_results_dir.mkdir(parents=True, exist_ok=True)
+    joblib.dump(result, model_results_dir / "logit_model.pkl")
+    joblib.dump(result_probit, model_results_dir / "probit_model.pkl")
