@@ -8,14 +8,16 @@ in domain language (ppath, pl, …) and never touches I/O specifics again.
 """
 
 from typing import Dict, List, Tuple
-
 from data_handler import SOEPDataHandler
+
+import pandas as pd
 
 # ---------------------------------------------------------------------------
 # Table specification
 # ---------------------------------------------------------------------------
 # key -> (filename in SOEP archive, list_of_columns_to_read)
-_SPEC: Dict[str, Tuple[str, List[str]]] = {
+# key: (filename, columns, config_section)
+_SPEC: Dict[str, Tuple[str, List[str], str]] = {
     "ppath": (
         "ppathl",
         [
@@ -25,10 +27,10 @@ _SPEC: Dict[str, Tuple[str, List[str]]] = {
             "gebjahr",
             "sex",
             "gebmonat",
-            # "parid",
             "partner",
             "migback",
         ],
+        "soep"
     ),
     "biosib": (
         "biosib",
@@ -46,105 +48,97 @@ _SPEC: Dict[str, Tuple[str, List[str]]] = {
             "sibpnr10",
             "sibpnr11",
         ],
+        "soep"
     ),
     "pl": (
         "pl",
-        # plg0012_h: Currently in education 
-        # plh0258_h: Kirche, religion
-        # plc0168_h: Bafoeg, Stipendium Bruttobetrag pro Monat
         [
-         "pid", 
-         "syear", 
-         "plg0012_h", 
-         "plh0258_h", 
-         "plc0167_h", 
-         "plc0168_h", 
-
-         # Education level
-         "plg0014_v5",  
-         "plg0014_v6",  
-         "plg0014_v7",
-
-         "plh0254",
-         ],
+            "pid",
+            "syear",
+            "plg0012_h",
+            "plh0258_h",
+            "plc0167_h",
+            "plc0168_h",
+            "plg0014_v5",
+            "plg0014_v6",
+            "plg0014_v7",
+        ],
+        "soep"
     ),
     "pgen": (
         "pgen",
         [
-         "pid", 
-         "syear", 
-         "pglabgro", 
-         "pgemplst", 
-         "pgpartnr",
-         "pgisced11"
-         ], 
+            "pid",
+            "syear",
+            "pglabgro",
+            "pgemplst",
+            "pgpartnr",
+            "pgisced11"
+        ],
+        "soep"
     ),
     "pkal": (
         "pkal",
         [
-         "pid", 
-         "syear", 
-
-         "kal2a02",
-         "kal2a03_h"
-         ], 
+            "pid",
+            "syear",
+            "kal2a02",
+            "kal2a03_h"
+        ],
+        "soep"
     ),
-
     "pwealth": (
         "pwealth",
         [
             "pid",
             "syear",
-
-            # Financial Assets
             "f0100a", "f0100b", "f0100c", "f0100d", "f0100e",
-
-            # Other Real Estate (Share Net Value)
             "e0111a", "e0111b", "e0111c", "e0111d", "e0111e",
-
-            # Business Assets
             "b0100a", "b0100b", "b0100c", "b0100d", "b0100e",
-
-            # Private Insurances (Building loan and insurances)
             "i0100a", "i0100b", "i0100c", "i0100d", "i0100e",
-
-            # Vehicles
             "v0100a", "v0100b", "v0100c", "v0100d", "v0100e",
-
-            # Tangible Assets
             "t0100a", "t0100b", "t0100c", "t0100d", "t0100e",
-
-            # Overall Debts (excluding student loans)
             "w0011a", "w0011b", "w0011c", "w0011d", "w0011e"
         ],
+        "soep"
     ),
     "bioparen": (
         "bioparen",
         ["pid", "fnr", "mnr"],
+        "soep"
     ),
     "region": (
         "regionl",
         ["hid", "bula", "syear"],
+        "soep"
     ),
     "hgen": (
         "hgen",
         ["hid", "hgtyp1hh", "syear"],
+        "soep"
     ),
     "pequiv": (
         "pequiv",
-        # istuy: Student grants
-        ["pid", "istuy", "syear"]
+        ["pid", "istuy", "syear"],
+        "soep"
     ),
-
     "biol": (
         "biol",
-        [
-            "pid", 
-            "syear", 
-            "lb0285",
-            "lb0267_v1"
-        ]
+        ["pid", "syear", "lb0285", "lb0267_v1"],
+        "soep"
     ),
+    "phrf": (
+        "phrf",
+        [
+            "pid",
+            "aphrf", "bphrf", "cphrf", "dphrf", "ephrf", "fphrf", "gphrf", "hphrf", "iphrf",
+            "jphrf", "kphrf", "lphrf", "mphrf", "nphrf", "ophrf", "pphrf", "qphrf", "rphrf",
+            "sphrf", "tphrf", "uphrf", "vphrf", "wphrf", "xphrf", "yphrf", "zphrf",
+            "baphrf", "bbphrf", "bcphrf", "bdphrf", "bephrf", "bfphrf", "bgphrf", "bhphrf",
+            "biphrf", "bjphrf", "bkphrf", "blphrf"
+        ],
+        "soep_raw"
+    )
 }
 
 
@@ -161,25 +155,23 @@ class LoaderRegistry:
     # Dynamically create one SOEPDataHandler per spec entry
     def __init__(self) -> None:
         self._handlers: Dict[str, SOEPDataHandler] = {
-            key: SOEPDataHandler(filename) for key, (filename, _) in _SPEC.items()
+            key: SOEPDataHandler(filename, config_section=config_section)
+            for key, (filename, _, config_section) in _SPEC.items()
         }
-        # Cache for already‑loaded DataFrames
         self.data: Dict[str, "pd.DataFrame"] = {}
 
     # ---------------------------------------------------------------------
     # Generic helpers
     # ---------------------------------------------------------------------
     def load(self, key: str):
-        """Load *one* sheet and return a fresh DataFrame copy."""
-        if key in self.data:  # already loaded → return cached copy
+        if key in self.data:
             return self.data[key]
-
-        filename, cols = _SPEC[key]
+        filename, cols, config_section = _SPEC[key]
         handler = self._handlers[key]
         handler.load_dataset(cols)
-        # Always store a copy so caller mutations don’t corrupt registry state
         self.data[key] = handler.data.copy()
         return self.data[key]
+
 
     def load_all(self):
         """Eagerly load every sheet defined in the spec."""
