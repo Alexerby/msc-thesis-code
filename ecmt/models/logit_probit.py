@@ -19,13 +19,22 @@ DEFAULT_REGISTRY_MERGES = [
 DEFAULT_EXTERNAL_MERGES = [
     {
         "parquet_path": "~/Downloads/BAföG Results/parquets/students.parquet",
-        "columns": ["age", "east_background", "sex", "gross_monthly_income", "has_partner", "lives_at_home", "bula"],
+        "columns": [
+                    "age", 
+                    "east_background", 
+                    "sex", 
+                    "gross_monthly_income", 
+                    "has_partner", 
+                    "lives_at_home", 
+                    "bula",
+                    "num_children"
+                    ],
         "left_on": ["pid", "syear"],
         "right_on": ["pid", "syear"]
     },
     {
         "parquet_path": "~/Downloads/BAföG Results/parquets/parents_joint.parquet",
-        "columns": ["joint_income", "isced_mean"],
+        "columns": ["joint_income", "parent_high_edu"],
         "left_on": ["pid", "syear"],
         "right_on": ["student_pid", "syear"]
     },    
@@ -37,7 +46,38 @@ DEFAULT_EXTERNAL_MERGES = [
     },    
 ]
 
-DEFAULT_CATEGORICALS = ["migback", "isced_mean",]
+# MIGRATION BACKGROUND: NEW DUMMY NAME
+MIGBACK_DUMMY = "has_migback"
+
+DEFAULT_CATEGORICALS = []  # migback will be handled as dummy, not categorical
+
+# === HUMAN-FRIENDLY LABEL MAPS ===
+
+ISCED_LABELS = {
+    0: "Parent: In school",
+    1: "Parent: Primary education",
+    2: "Parent: Lower secondary (reference)",  # typically dropped as reference
+    3: "Parent: Upper secondary",
+    4: "Parent: Post-secondary non-tertiary",
+    5: "Parent: Short-cycle tertiary",
+    6: "Parent: Bachelor or equivalent",
+    7: "Parent: Master or equivalent",
+    8: "Parent: Doctorate or equivalent"
+}
+
+MIGBACK_LABELS = {
+    0: "No migration background (reference)",
+    1: "Has migration background"
+}
+
+def get_dummy_label(col):
+    """Return human-friendly label for dummy variable columns."""
+    if col == MIGBACK_DUMMY:
+        return "Migration background (direct or indirect)"
+    if col.startswith("migback_"):
+        code = int(col.split("_")[-1])
+        return MIGBACK_LABELS.get(code, col)
+    return col.replace("_", " ").capitalize()
 
 # === DATA LOADER CLASS ===
 
@@ -100,6 +140,17 @@ class BafoegDataPipeline:
 
 # === FEATURE ENGINEERING UTILITIES ===
 
+def add_migback_dummy(df, missing_codes):
+    """Create a single binary dummy for migration background."""
+    if "migback" not in df:
+        raise ValueError("Column 'migback' not in DataFrame!")
+    df[MIGBACK_DUMMY] = (
+        df["migback"].where(~df["migback"].isin(missing_codes))
+        .isin([1, 2])
+        .astype(int)
+    )
+    return df
+
 def clean_and_impute_categoricals(df, categoricals, missing_codes):
     """Clean, impute, and encode categorical columns."""
     for col in categoricals:
@@ -116,16 +167,17 @@ def clean_and_impute_categoricals(df, categoricals, missing_codes):
         df[col] = df[col].astype(str)
     return df
 
-def make_dummies(df, categoricals):
-    df = pd.get_dummies(df, columns=categoricals, drop_first=True)
+def make_dummies(df, categoricals, drop_first=True):
+    df = pd.get_dummies(df, columns=categoricals, drop_first=drop_first)
     dummy_vars = []
     for cat in categoricals:
         dummy_vars += [col for col in df.columns if col.startswith(f"{cat}_")]
     return df, dummy_vars
 
 def add_income_vars(df):
-    df["parental_joint_income_k"] = df["joint_income"] / 1000
-    df["gross_monthly_income_k"] = df["gross_monthly_income"] / 1000
+    df["parental_joint_income_100"] = df["joint_income"] / 100
+    df["gross_monthly_income_100"] = df["gross_monthly_income"] / 100
+    df["theoretical_bafög_100"] = df["theoretical_bafög"] / 100
     return df
 
 def restrict_to_eligible(df, eligibility_col="theoretical_eligibility", received_col="received_bafög"):
@@ -157,6 +209,19 @@ def run_binary_model(
     result = model.fit(weights=weights, **fit_kwargs)
     return result
 
+def print_model_table(result, dummy_vars):
+    """Print readable regression table for key dummies."""
+    print("\nVariable\tCoef.\tStd.Err.\tp-value")
+    for v in dummy_vars:
+        label = get_dummy_label(v)
+        try:
+            coef = result.params[v]
+            se = result.bse[v]
+            pval = result.pvalues[v]
+            print(f"{label}\t{coef:.3f}\t{se:.3f}\t{pval:.3f}")
+        except KeyError:
+            pass  # Could happen with collinearity or dropped levels
+
 # === PIPELINE WRAPPER ===
 
 def full_bafoeg_pipeline(
@@ -182,19 +247,33 @@ def full_bafoeg_pipeline(
     df = add_income_vars(df)
     df = restrict_to_eligible(df)
 
+    # --- MIGBACK DUMMY ---
+    df = add_migback_dummy(df, pipeline.missing_codes)
+    D_vars = [MIGBACK_DUMMY]
+
+    # If you have other categoricals, handle them as usual:
     categoricals = categoricals or DEFAULT_CATEGORICALS
-    df = clean_and_impute_categoricals(df, categoricals, pipeline.missing_codes)
-    df, D_vars = make_dummies(df, categoricals)
+    if categoricals:
+        df = clean_and_impute_categoricals(df, categoricals, pipeline.missing_codes)
+        df, more_dummies = make_dummies(df, categoricals, drop_first=True)
+        D_vars += more_dummies
+
+    # Handle missing codes for interaction vars (ensure no bad codes remain)
+    for col in ["plh0253", "plh0254"]:
+        if col in df.columns:
+            df.loc[df[col].isin(DEFAULT_MISSING_CODES), col] = pd.NA
 
     # Variable groups (pass as args for flexibility)
-    Z_vars = Z_vars or ["age", "parental_joint_income_k", "gross_monthly_income_k"]
+    Z_vars = Z_vars or ["age", "parental_joint_income_100", "gross_monthly_income_100", "theoretical_bafög_100"]
     B_vars = B_vars or ["sex", "has_partner", "lives_at_home", "any_sibling_bafog", "east_background"]
 
-    X_vars = Z_vars + B_vars + D_vars
+    # Remove plh0253 and plh0254 from X_vars if present, as they will be added via interaction in formula
+    X_vars = [v for v in Z_vars + B_vars + D_vars if v not in ["plh0253", "plh0254"]]
+
+    # Construct formula with main effects, interaction, and dummies
     formula = "non_take_up ~ " + " + ".join(X_vars)
 
     # === APPLY WEIGHTS ===
-    # Use only non-missing, positive weights
     if "phrf" not in df.columns:
         raise ValueError("Column 'phrf' not found in DataFrame! Is it in your base parquet?")
     df = df[df["phrf"].notna() & (df["phrf"] > 0)].copy()
@@ -211,7 +290,8 @@ def full_bafoeg_pipeline(
     )
     print(result.summary())
     print(f"McFadden's pseudo-R² (logit): {result.prsquared:.4f}")
-    # AME for logit
+
+    print_model_table(result, D_vars)
     marg_eff_logit = result.get_margeff(at='overall')
     print("\nLOGIT Average Marginal Effects (AMEs):")
     print(marg_eff_logit.summary())
@@ -227,25 +307,69 @@ def full_bafoeg_pipeline(
     )
     print(result_probit.summary())
     print(f"McFadden's pseudo-R² (probit): {result_probit.prsquared:.4f}")
-    # AME for probit
+
+    print_model_table(result_probit, D_vars)
     marg_eff_probit = result_probit.get_margeff(at='overall')
     print("\nPROBIT Average Marginal Effects (AMEs):")
     print(marg_eff_probit.summary())
 
+    print(df.shape)
+
     return result, result_probit
 
-# === USAGE ===
 
+
+def run_probit_year_by_year(df, formula, year_col='syear', cluster_var=None, weights=None):
+    results = {}
+    years = sorted(df[year_col].dropna().unique())
+    
+    for year in years:
+        print(f"\n--- Running probit for year {year} ---")
+        df_year = df[df[year_col] == year].copy()
+        
+        if df_year.empty:
+            print(f"No data for year {year}, skipping.")
+            continue
+        
+        try:
+            result = run_binary_model(
+                df_year, formula, model_type="probit", cluster_var=cluster_var, weights=weights
+            )
+            results[year] = result
+            
+            # Print key info for dummies, assuming you want that
+            # Get dummy vars from the formula or pass as argument (for example)
+            # Here you could parse formula or just pass dummy_vars explicitly
+            dummy_vars = [term for term in result.params.index if term != 'Intercept']
+            print_model_table(result, dummy_vars)
+        except Exception as e:
+            print(f"Error fitting model for year {year}: {e}")
+    
+    return results
+
+# === USAGE ===
 if __name__ == "__main__":
     result, result_probit = full_bafoeg_pipeline(
         base_parquet_path="~/Downloads/BAföG Results/parquets/bafoeg_calculations.parquet",
         registry_merges=DEFAULT_REGISTRY_MERGES,
         external_merges=DEFAULT_EXTERNAL_MERGES,
-        categoricals=DEFAULT_CATEGORICALS,
+        categoricals = [],  # No categoricals, migback now handled as dummy
         missing_codes=DEFAULT_MISSING_CODES,
-        cov_type="HC2"     # <---- Robust SEs, or set cluster_var="pid" for cluster-robust
-        # cluster_var="pid" # (use this instead if you want cluster-robust SEs)
-    )
+        cov_type="HC2",
+        Z_vars = ["age", 
+                  "parental_joint_income_100", 
+                  "gross_monthly_income_100", 
+                  "theoretical_bafög_100", 
+                  "plh0204_h",
+                  ],
+        B_vars = ["sex", 
+                  "has_partner", 
+                  "lives_at_home", 
+                  "any_sibling_bafog", 
+                  "east_background", 
+                  "parent_high_edu",
+                  ], 
+        )
 
     # === EXPORT THE MODELS ===
     config = load_config()

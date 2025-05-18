@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from pandas.core.api import DataFrame
 
 
 
@@ -9,6 +10,7 @@ from .eligibility_conditions import is_ineligible
 from .filters import clamp_small_theoretical_awards
 from .data_cleaning import clean_bafög_columns
 
+from pipeline.common.others import add_weight_col
 from pipeline.soep_bundle import SOEPDataBundle
 from pipeline.policy_bundle import PolicyTableBundle
 
@@ -42,6 +44,11 @@ def create_dataframe(
     # out = drop_reported_bafog_inconsistencies(out)
     out = clean_bafög_columns(out)
     # out = drop_zero_excess_income_par(out)
+
+    out = add_weight_col(out, phrf_df=data.phrf)
+    out = merge_ffill(out, data.pl, "plh0253")
+    out = merge_ffill(out, data.pl, "plh0254")
+    out = merge_ffill(out, data.pl, "plh0204_h")
 
 
 
@@ -172,16 +179,24 @@ def merge_parental_excess_income(
 ) -> pd.DataFrame:
     """
     Merge parental excess income and rename to 'excess_income_par'.
+    Also add 'ind_funded' dummy: 1 if joint_income < 0, else 0.
     """
+    # Prepare the parental info with dummy
     parents = (
         parents_joint_df
         .rename(columns={
             "student_pid": "pid",
             "excess_income": "excess_income_par"
         })
-        .loc[:, ["pid", "syear", "excess_income_par"]]
+        .loc[:, ["pid", "syear", "excess_income_par", "joint_income"]]
+        .copy()
     )
+    parents["ind_funded"] = (parents["joint_income"] < 0).astype(int)
 
+    # Only keep columns needed for the merge
+    parents = parents.loc[:, ["pid", "syear", "excess_income_par", "ind_funded"]]
+
+    # Merge into left dataframe
     return df.merge(
         parents,
         on=["pid", "syear"],
@@ -189,7 +204,19 @@ def merge_parental_excess_income(
         validate="one_to_one"
     )
 
-def add_weight_col(df: pd.DataFrame, ppath_df: pd.DataFrame):
-    ppath_df_subset = ppath_df[["pid", "syear", "phrf"]]
-    df = df.merge(ppath_df_subset, on = ["pid", "syear"])
-    return df
+def merge_ffill(
+    df: pd.DataFrame, 
+    pl_df: pd.DataFrame, 
+    var_name: str
+) -> pd.DataFrame:
+    # Only keep needed columns from pl_df to avoid accidental duplicate columns
+    pl_df = pl_df[["pid", "syear", var_name]]
+
+    out = df.copy()
+    out = out.merge(pl_df, on=["pid", "syear"], how="left")
+    
+    # Sort by pid and year before forward filling
+    out = out.sort_values(['pid', 'syear'])
+    out[var_name] = out.groupby('pid')[var_name].ffill()
+    
+    return out

@@ -6,6 +6,7 @@ from loaders.registry import LoaderRegistry
 class SOEPDataBundle:
     ppath: pd.DataFrame
     pl: pd.DataFrame
+    phrf: pd.DataFrame
     pgen: pd.DataFrame
     pkal: pd.DataFrame 
     region: pd.DataFrame
@@ -27,5 +28,6 @@ class SOEPDataBundle:
             pgen=registry.pgen(),
             biosib=registry.biosib(),
             pkal=registry.pkal(),
-            pwealth=registry.pwealth()
+            pwealth=registry.pwealth(),
+            phrf=registry.phrf()
         )

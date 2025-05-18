@@ -22,8 +22,13 @@ def add_sociodemographics(df: pd.DataFrame, data: SOEPDataBundle) -> pd.DataFram
         .pipe(add_partner_flag)
         .pipe(add_child_count, data.bioparen, data.biol)
         .pipe(add_siblings_pid, data.biosib)
+        .pipe(add_employment_status, data.pgen)
     )
 
+
+
+def add_employment_status(df: pd.DataFrame, pgen_df: pd.DataFrame) -> pd.DataFrame:
+    return df.merge(pgen_df[["pid", "syear", "pgemplst"]], on=["pid", "syear"], how="left")
 
 
 def add_siblings_pid(df: pd.DataFrame, biosib_df: pd.DataFrame) -> pd.DataFrame:
@@ -109,7 +114,6 @@ def add_current_partner_pid(df: pd.DataFrame, pgen_df: pd.DataFrame) -> pd.DataF
     """
     pgen = pgen_df[["pid", "syear", "pgpartnr"]].copy()
     return df.merge(pgen, on=["pid", "syear"], how="left")
-
 
 
 def add_bundesland(df: pd.DataFrame, region_df: pd.DataFrame) -> pd.DataFrame:

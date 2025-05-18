@@ -2,6 +2,19 @@ import pandas as pd
 from descriptives.helpers import load_data
 from tabulate import tabulate
 
+from .conditional_types.household import non_take_up_by_hgtyp_per_year
+from .conditional_types.employment_status import non_take_up_by_pgemplst
+from .conditional_types.no_children import non_take_up_by_num_children_per_year
+from .conditional_types.migback import non_take_up_by_migback_per_year
+from .conditional_types.sex import non_take_up_by_sex_per_year
+from .conditional_types.bula import non_take_up_by_bula_per_year
+from .conditional_types.east import non_take_up_by_east_per_year
+from .conditional_types.any_sibling_bafog import non_take_up_by_any_sibling_bafog_per_year
+from .conditional_types.parents_high_edu import non_take_up_by_parent_high_edu_per_year
+
+
+
+
 
 def compute_conditional_probs_by_year(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -54,16 +67,42 @@ def compute_overall_conditional_probs(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame([results])
 
 
+
+
 def main():
-    df = load_data("bafoeg_calculations", from_parquet=True)
-    cond_probs_df = compute_overall_conditional_probs(df)
-    cond_probs_by_year = compute_conditional_probs_by_year(df)
+    # Datasets 
+    bc_df = load_data("bafoeg_calculations", from_parquet=True)
+    stu_df = load_data("students", from_parquet=True)
+    sib_joint_df = load_data("siblings_joint", from_parquet=True)
+    siblings_df = sib_joint_df[["student_pid", "syear", "any_sibling_bafog"]].drop_duplicates()
 
-    print("\n📊 Conditional probabilities grouped by `syear`:\n")
+    parents_joint_df = load_data("parents_joint", from_parquet=True)
+
+    # Merge on pid <-> student_pid and syear
+    bc_df = bc_df.merge(
+        siblings_df,
+        left_on=["pid", "syear"],
+        right_on=["student_pid", "syear"],
+        how="left"
+    )
+
+
+    bc_df = bc_df.merge(
+        parents_joint_df,
+        left_on=["pid", "syear"],
+        right_on=["student_pid", "syear"],
+        how="left"
+    )
+
+    # Merge
+    main_df = bc_df.merge(stu_df, on=["pid", "syear"], how="left")
+
+    cond_probs_by_year = compute_conditional_probs_by_year(main_df)
+    cond_probs = compute_overall_conditional_probs(main_df)
     print(tabulate(cond_probs_by_year, headers="keys", tablefmt="github", floatfmt=".3f"))
+    print(tabulate(cond_probs, headers="keys", tablefmt="github", floatfmt=".3f"))
 
-    print("\n📊 Conditional probabilities average over all 'syear':\n")
-    print(tabulate(cond_probs_df, headers="keys", tablefmt="github", floatfmt=".3f"))
+
 
 if __name__ == "__main__":
     main()

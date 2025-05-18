@@ -10,7 +10,8 @@
         "results": {
             "figures": "~/Downloads/figures/",
             "tables": "~/Downloads/tables/",
-            "dataframes": "~/Downloads/dataframes/"
+            "dataframes": "~/Downloads/dataframes/",
+            "model_results": "~/Downloads/model_results/"
         }
     }
 }

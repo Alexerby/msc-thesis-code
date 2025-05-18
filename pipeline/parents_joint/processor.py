@@ -62,12 +62,15 @@ def base_view(parents_df: pd.DataFrame, policy: PolicyTableBundle) -> pd.DataFra
     """
     Constructs the base parental income view by aggregating net monthly income
     from contributing parents and counting only those who contribute financially.
-    Now also computes average, min, and max parental education per student.
+    Adds a binary 'parent_high_edu' dummy: 1 if any parent has ISCED 6–8, else 0.
     """
     contributing = parents_df[parents_df["net_monthly_income"] > 0]
 
     # Convert ISCED to numeric (safe, in case of stringy merges)
     contributing["pgisced11"] = pd.to_numeric(contributing["pgisced11"], errors="coerce")
+
+    def parent_high_edu(series):
+        return int(series.astype(float).isin([6, 7, 8]).any())
 
     base = (
         contributing
@@ -75,15 +78,13 @@ def base_view(parents_df: pd.DataFrame, policy: PolicyTableBundle) -> pd.DataFra
         .agg(
             joint_income=("net_monthly_income", "sum"),
             num_parents=("pid", "count"),
-            # You can compute any/all of these:
-            isced_mean=("pgisced11", "mean"),
-            # Optionally: most frequent (mode)
-            # isced_mode=('pgisced11', lambda x: x.mode().iloc[0] if not x.mode().empty else pd.NA),
+            parent_high_edu=("pgisced11", parent_high_edu),
         )
         .reset_index()
     )
 
-    # Apply single-parent allowance
+    # (rest of your single/joint parent allowance logic...)
+
     single = base.query("num_parents == 1").pipe(
         apply_entity_allowances,
         allowance_table=policy.allowance_25.rename(columns={
@@ -97,7 +98,6 @@ def base_view(parents_df: pd.DataFrame, policy: PolicyTableBundle) -> pd.DataFra
         output_col="joint_income_less_ba"
     )
 
-    # Apply two-parent allowance
     joint = base.query("num_parents == 2").pipe(
         apply_entity_allowances,
         allowance_table=policy.allowance_25.rename(columns={

@@ -1,7 +1,16 @@
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 import os
+import matplotlib.pyplot as plt
+import seaborn as sns
+import matplotlib as mpl
+import numpy as np
+
+def prettify(varname):
+    """Replace underscores with spaces and capitalize words; map 'syear' to 'Year'."""
+    if not varname:
+        return ''
+    if varname.lower() == "syear":
+        return "Year"
+    return varname.replace('_', ' ').title()
 
 
 def plot_variable(
@@ -33,24 +42,53 @@ def plot_variable(
     if plot_type == 'scatter':
         assert timevar is not None, "Need timevar for scatterplot."
         sns.scatterplot(data=df, x=timevar, y=var, hue=hue, **kwargs)
-        plt.title(title or f'Scatterplot of {var} over {timevar}')
+        plt.title(title or f'Scatterplot of {prettify(var)} Over {prettify(timevar)}')
+        plt.xlabel(prettify(timevar))
+        plt.ylabel(prettify(var))
 
     elif plot_type == 'pdf':
-        sns.histplot(df[var], kde=True, stat='density', color="black", fill=False, **kwargs)
-        plt.title(title or f'Distribution of {var}')
+        # Use the 1st and 99th percentiles for limits
+        data_min, data_max = np.nanpercentile(df[var], [1, 99])
+        sns.histplot(
+            df[var],
+            kde=True,
+            stat='density',
+            color="black",
+            fill=False,
+            binrange=(data_min, data_max),
+            **kwargs
+        )
+        plt.title(title or f'Distribution of {prettify(var)}')
+        plt.xlabel(prettify(var))
+        plt.ylabel("Density")
+        plt.xlim(data_min, data_max)
 
     elif plot_type == 'timeline':
         assert timevar is not None, "Need timevar for timeline plot."
         if groupby:
             grouped = df.groupby([timevar, groupby])[var].mean().reset_index()
             sns.lineplot(data=grouped, x=timevar, y=var, hue=groupby, **kwargs)
+            plt.xlabel(prettify(timevar))
+            plt.ylabel(f"Mean {prettify(var)}")
         else:
             grouped = df.groupby(timevar)[var].mean().reset_index()
             sns.lineplot(data=grouped, x=timevar, y=var, color="black", **kwargs)
-        plt.title(title or f'Mean {var} over time')
+            plt.xlabel(prettify(timevar))
+            plt.ylabel(f"Mean {prettify(var)}")
+        plt.title(title or f"Mean {prettify(var)} Over Time")
 
     else:
         raise ValueError(f"Unknown plot_type: {plot_type}")
+
+    # === Cutoff x-axis to 1st-99th percentile for scatter and timeline ===
+    if plot_type in ['timeline', 'scatter']:
+        x_data = df[timevar] if timevar is not None else None
+        # Numeric or datetime
+        if x_data is not None and (
+            np.issubdtype(x_data.dtype, np.number) or np.issubdtype(x_data.dtype, np.datetime64)
+        ):
+            lower, upper = np.nanpercentile(x_data, [1, 99])
+            plt.xlim(lower, upper)
 
     plt.tight_layout()
 
@@ -77,22 +115,7 @@ def plot_comparison(
     **kwargs
 ):
     """
-    Plot two variables side by side using APA-style aesthetics.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-    var1, var2 : str
-        The two variables to compare.
-    plot_type : str
-        Type of plot: 'pdf', 'scatter', or 'timeline'.
-    timevar : str, optional
-    hue : str, optional
-    drop_zeros : bool
-    title1, title2 : str
-    save_path : str, optional
-    dpi : int
-    kwargs : dict
+    Plot two variables side by side using APA-style aesthetics, with synchronized axes.
     """
     # --- APA-style tweaks ---
     sns.set_theme(style="whitegrid")
@@ -116,27 +139,41 @@ def plot_comparison(
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
 
-    # --- Determine shared axis limits if plot_type is 'pdf'
-    x_mins, x_maxs, y_maxs = [], [], []
+    # --- Collect axis limits across both variables ---
+    x_mins, x_maxs, y_mins, y_maxs = [], [], [], []
 
-    if plot_type == 'pdf':
-        for var in [var1, var2]:
-            sub = df.dropna(subset=[var])
-            if drop_zeros:
-                sub = sub[sub[var] != 0]
-            if sub.empty:
-                continue
+    for var in [var1, var2]:
+        sub = df.dropna(subset=[var])
+        if drop_zeros:
+            sub = sub[sub[var] != 0]
+        if sub.empty:
+            continue
+
+        if plot_type == 'pdf':
             x_mins.append(sub[var].min())
             x_maxs.append(sub[var].max())
             # Temporarily plot to get y-limit
             tmp_ax = sns.histplot(sub[var], kde=True, stat="density", element="step", fill=False)
+            y_mins.append(0)
             y_maxs.append(tmp_ax.get_ylim()[1])
-            plt.cla()  # Clear temporary plot
+            plt.cla()
+        elif plot_type == 'timeline':
+            assert timevar is not None, "timevar required for timeline"
+            grouped = sub.groupby(timevar)[var].mean().reset_index()
+            x_mins.append(grouped[timevar].min())
+            x_maxs.append(grouped[timevar].max())
+            y_mins.append(grouped[var].min())
+            y_maxs.append(grouped[var].max())
+        elif plot_type == 'scatter':
+            assert timevar is not None, "timevar required for scatter"
+            x_mins.append(sub[timevar].min())
+            x_maxs.append(sub[timevar].max())
+            y_mins.append(sub[var].min())
+            y_maxs.append(sub[var].max())
 
-        xlim = (min(x_mins), max(x_maxs)) if x_mins and x_maxs else None
-        ylim = (0, max(y_maxs)) if y_maxs else None
-    else:
-        xlim, ylim = None, None
+    # Only set xlim/ylim if we have data
+    xlim = (min(x_mins), max(x_maxs)) if x_mins and x_maxs else None
+    ylim = (min(y_mins), max(y_maxs)) if y_mins and y_maxs else None
 
     # --- Actual plotting
     for ax, var, title in zip(
@@ -147,7 +184,9 @@ def plot_comparison(
             sub = sub[sub[var] != 0]
 
         if sub.empty:
-            ax.set_title(f"No data for {var}", fontstyle="italic")
+            ax.set_title(f"No data for {prettify(var)}", fontstyle="italic")
+            ax.set_xlabel("")
+            ax.set_ylabel("")
             continue
 
         if plot_type == 'pdf':
@@ -162,10 +201,11 @@ def plot_comparison(
             )
             if xlim: ax.set_xlim(xlim)
             if ylim: ax.set_ylim(ylim)
-            ax.set_title(f"Distribution of {title}")
+            ax.set_title(f"Distribution of {prettify(title)}")
+            ax.set_xlabel(prettify(var))
+            ax.set_ylabel("Density")
 
         elif plot_type == 'scatter':
-            assert timevar is not None, "timevar required for scatter"
             sns.scatterplot(
                 data=sub,
                 x=timevar,
@@ -175,10 +215,13 @@ def plot_comparison(
                 ax=ax,
                 **kwargs
             )
-            ax.set_title(f"{title} vs. {timevar}")
+            if xlim: ax.set_xlim(xlim)
+            if ylim: ax.set_ylim(ylim)
+            ax.set_title(f"{prettify(title)} vs. {prettify(timevar)}")
+            ax.set_xlabel(prettify(timevar))
+            ax.set_ylabel(prettify(var))
 
         elif plot_type == 'timeline':
-            assert timevar is not None, "timevar required for timeline"
             grouped = sub.groupby(timevar)[var].mean().reset_index()
             sns.lineplot(
                 data=grouped,
@@ -188,13 +231,15 @@ def plot_comparison(
                 ax=ax,
                 **kwargs
             )
-            ax.set_title(f"Mean {title} over time")
+            if xlim: ax.set_xlim(xlim)
+            if ylim: ax.set_ylim(ylim)
+            ax.set_title(f"Mean {prettify(title)} Over Time")
+            ax.set_xlabel(prettify(timevar))
+            ax.set_ylabel(f"Mean {prettify(var)}")
 
         else:
             raise ValueError(f"Unknown plot_type: {plot_type}")
 
-        ax.set_xlabel(timevar if timevar else var)
-        ax.set_ylabel(var)
         ax.grid(True, which="major", linestyle="--", linewidth=0.5)
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
@@ -205,21 +250,3 @@ def plot_comparison(
         plt.close()
     else:
         plt.show()
-
-
-def plot_pdf_per_year(df, var, output_dir):
-    for year in sorted(df["syear"].dropna().unique()):
-        subset = df[df["syear"] == year]
-        if subset[var].dropna().eq(0).all():
-            continue  # skip if all zero or missing
-
-        save_path = output_dir / f"{var}_pdf_{year}.png"
-
-        plot_variable(
-            subset,
-            var=var,
-            plot_type="pdf",
-            title=f"{var} Distribution ({year})",
-            drop_zeros=True,
-            save_path=save_path
-        )

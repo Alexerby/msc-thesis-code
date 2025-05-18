@@ -62,6 +62,9 @@ _SPEC: Dict[str, Tuple[str, List[str], str]] = {
             "plg0014_v5",
             "plg0014_v6",
             "plg0014_v7",
+            "plh0253",
+            "plh0254",
+            "plh0204_h"
         ],
         "soep"
     ),
@@ -200,6 +203,10 @@ class LoaderRegistry:
     def pl(self):
         # Person-year survey data: education status, religion, BAföG amount
         return self.load("pl")
+
+    def phrf(self):
+        # Person-year survey data: education status, religion, BAföG amount
+        return self.load("phrf")
 
 
     def biol(self):
