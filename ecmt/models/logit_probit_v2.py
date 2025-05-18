@@ -8,6 +8,8 @@ from ecmt.parquet_loader import BafoegParquetLoader
 from ecmt.helpers import load_config
 import joblib
 
+import patsy
+
 # === CONFIGURATION ===
 
 DEFAULT_MISSING_CODES = [-1, -2, -3, -8, -9, -99]
@@ -204,21 +206,35 @@ def run_binary_model(
     model_type: str = "logit",
     cluster_var: Optional[str] = None,
     cov_type: Optional[str] = None,
-    weights=None,
     **fit_kwargs
 ):
+    from patsy import dmatrices
+
     model_map = {"logit": sm_logit, "probit": sm_probit}
     if model_type not in model_map:
         raise ValueError(f"Unknown model_type '{model_type}'. Use 'logit' or 'probit'.")
+
+    # Safely identify all variables involved in the formula
+    try:
+        y, X = dmatrices(formula, data=df, return_type="dataframe")
+    except Exception as e:
+        raise ValueError(f"Error parsing formula '{formula}': {e}")
+
+    needed_cols = list(y.columns) + list(X.columns)
+    if cluster_var:
+        needed_cols += [cluster_var]
+
+    df = df.dropna(subset=needed_cols).copy()
+
     model = model_map[model_type](formula=formula, data=df)
+
     if cluster_var is not None:
         fit_kwargs['cov_type'] = 'cluster'
         fit_kwargs['cov_kwds'] = {'groups': df[cluster_var]}
     elif cov_type is not None:
         fit_kwargs['cov_type'] = cov_type
-    # Pass weights if provided
-    result = model.fit(weights=weights, **fit_kwargs)
-    return result
+
+    return model.fit(**fit_kwargs)
 
 def print_model_table(result, dummy_vars):
     """Print readable regression table for key dummies."""
@@ -286,20 +302,14 @@ def full_bafoeg_pipeline(
     # Construct formula with main effects, interaction, and dummies
     formula = "non_take_up ~ " + " + ".join(X_vars) + " -1"
 
-    # === APPLY WEIGHTS ===
-    if "phrf" not in df.columns:
-        raise ValueError("Column 'phrf' not found in DataFrame! Is it in your base parquet?")
-    df = df[df["phrf"].notna() & (df["phrf"] > 0)].copy()
-    weights = df["phrf"]
 
-    print("\n=== Fitting LOGIT model (with weights) ===")
+    print("\n=== Fitting LOGIT model ===")
     result = run_binary_model(
         df, 
         formula=formula, 
         model_type="logit", 
         cluster_var=cluster_var, 
         cov_type=cov_type,
-        weights=weights
     )
     print(result.summary())
     print(f"McFadden's pseudo-R² (logit): {result.prsquared:.4f}")
@@ -309,14 +319,13 @@ def full_bafoeg_pipeline(
     print("\nLOGIT Average Marginal Effects (AMEs):")
     print(marg_eff_logit.summary())
 
-    print("\n=== Fitting PROBIT model (with weights) ===")
+    print("\n=== Fitting PROBIT model ===")
     result_probit = run_binary_model(
         df, 
         formula=formula, 
         model_type="probit", 
         cluster_var=cluster_var, 
         cov_type=cov_type,
-        weights=weights
     )
     print(result_probit.summary())
     print(f"McFadden's pseudo-R² (probit): {result_probit.prsquared:.4f}")
@@ -332,7 +341,7 @@ def full_bafoeg_pipeline(
 
 
 
-def run_probit_year_by_year(df, formula, year_col='syear', cluster_var=None, weights=None):
+def run_probit_year_by_year(df, formula, year_col='syear', cluster_var=None):
     results = {}
     years = sorted(df[year_col].dropna().unique())
     
@@ -346,7 +355,7 @@ def run_probit_year_by_year(df, formula, year_col='syear', cluster_var=None, wei
         
         try:
             result = run_binary_model(
-                df_year, formula, model_type="probit", cluster_var=cluster_var, weights=weights
+                df_year, formula, model_type="probit", cluster_var=cluster_var
             )
             results[year] = result
             
@@ -366,9 +375,9 @@ if __name__ == "__main__":
         base_parquet_path="~/Downloads/BAföG Results/parquets/bafoeg_calculations.parquet",
         registry_merges=DEFAULT_REGISTRY_MERGES,
         external_merges=DEFAULT_EXTERNAL_MERGES,
-        categoricals = [],  # No categoricals, migback now handled as dummy
+        categoricals = [],
         missing_codes=DEFAULT_MISSING_CODES,
-        cov_type="HC2",
+        cluster_var="pid",
         Z_vars = [
             "age", 
             "joint_income_log", 
