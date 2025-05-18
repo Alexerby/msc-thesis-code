@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-from statsmodels.formula.api import logit as sm_logit, probit as sm_probit
+from statsmodels.discrete.discrete_model import Probit, Logit
 from typing import List, Dict, Optional
 from ecmt.parquet_loader import BafoegParquetLoader
 from ecmt.helpers import load_config
@@ -200,41 +200,43 @@ def restrict_to_eligible(df, eligibility_col="theoretical_eligibility", received
 
 # === MODELING ===
 
+# === MODELING ===
+
 def run_binary_model(
     df: pd.DataFrame,
     formula: str,
     model_type: str = "logit",
     cluster_var: Optional[str] = None,
     cov_type: Optional[str] = None,
+    weight_var: Optional[str] = None,
     **fit_kwargs
 ):
-    from patsy import dmatrices
+    # Get design matrices
+    y, X = patsy.dmatrices(formula, data=df, return_type="dataframe")
 
-    model_map = {"logit": sm_logit, "probit": sm_probit}
-    if model_type not in model_map:
-        raise ValueError(f"Unknown model_type '{model_type}'. Use 'logit' or 'probit'.")
-
-    # Safely identify all variables involved in the formula
-    try:
-        y, X = dmatrices(formula, data=df, return_type="dataframe")
-    except Exception as e:
-        raise ValueError(f"Error parsing formula '{formula}': {e}")
-
+    # Drop missing weights or clusters if necessary
     needed_cols = list(y.columns) + list(X.columns)
     if cluster_var:
-        needed_cols += [cluster_var]
+        needed_cols.append(cluster_var)
+    if weight_var:
+        needed_cols.append(weight_var)
 
     df = df.dropna(subset=needed_cols).copy()
+    y = y.loc[df.index]
+    X = X.loc[df.index]
 
-    model = model_map[model_type](formula=formula, data=df)
+    weights = df[weight_var] if weight_var else None
+    groups = df[cluster_var] if cluster_var else None
 
-    if cluster_var is not None:
-        fit_kwargs['cov_type'] = 'cluster'
-        fit_kwargs['cov_kwds'] = {'groups': df[cluster_var]}
-    elif cov_type is not None:
-        fit_kwargs['cov_type'] = cov_type
+    # Choose model
+    model_cls = {"logit": Logit, "probit": Probit}[model_type]
+    model = model_cls(endog=y, exog=X)
 
-    return model.fit(**fit_kwargs)
+    # Fit model
+    result = model.fit(cov_type='cluster' if cluster_var else cov_type,
+                       cov_kwds={'groups': groups} if cluster_var else None,
+                       weights=weights)
+    return result
 
 def print_model_table(result, dummy_vars):
     """Print readable regression table for key dummies."""
@@ -261,6 +263,7 @@ def full_bafoeg_pipeline(
     missing_codes: Optional[List[int]] = None,
     cluster_var: Optional[str] = None,
     cov_type: Optional[str] = None,
+    weight_var: Optional[str] = None,
 ):
     pipeline = BafoegDataPipeline(
         base_parquet_path=base_parquet_path,
@@ -290,10 +293,6 @@ def full_bafoeg_pipeline(
         if col in df.columns:
             df.loc[df[col].isin(DEFAULT_MISSING_CODES), col] = pd.NA
 
-    # Variable groups (pass as args for flexibility)
-    # Z_vars = Z_vars or ["age", "joint_income", "gross_monthly_income", "theoretical_bafög"]
-    # B_vars = B_vars or ["sex", "has_partner", "lives_at_home", "any_sibling_bafog", "east_background"]
-
     # Remove plh0253 and plh0254 from X_vars if present, as they will be added via interaction in formula
     X_vars = [v for v in Z_vars + B_vars + D_vars if v not in ["plh0253", "plh0254"]]
 
@@ -304,20 +303,17 @@ def full_bafoeg_pipeline(
 
 
     print("\n=== Fitting LOGIT model ===")
-    result = run_binary_model(
+    result_logit = run_binary_model(
         df, 
         formula=formula, 
         model_type="logit", 
         cluster_var=cluster_var, 
         cov_type=cov_type,
+        weight_var=weight_var
     )
-    print(result.summary())
-    print(f"McFadden's pseudo-R² (logit): {result.prsquared:.4f}")
+    
+    print(result_logit.summary())
 
-    print_model_table(result, D_vars)
-    marg_eff_logit = result.get_margeff(at='overall')
-    print("\nLOGIT Average Marginal Effects (AMEs):")
-    print(marg_eff_logit.summary())
 
     print("\n=== Fitting PROBIT model ===")
     result_probit = run_binary_model(
@@ -326,6 +322,7 @@ def full_bafoeg_pipeline(
         model_type="probit", 
         cluster_var=cluster_var, 
         cov_type=cov_type,
+        weight_var=weight_var
     )
     print(result_probit.summary())
     print(f"McFadden's pseudo-R² (probit): {result_probit.prsquared:.4f}")
@@ -337,37 +334,10 @@ def full_bafoeg_pipeline(
 
     print(df.shape)
 
-    return result, result_probit
+    return result_logit, result_probit
 
 
 
-def run_probit_year_by_year(df, formula, year_col='syear', cluster_var=None):
-    results = {}
-    years = sorted(df[year_col].dropna().unique())
-    
-    for year in years:
-        print(f"\n--- Running probit for year {year} ---")
-        df_year = df[df[year_col] == year].copy()
-        
-        if df_year.empty:
-            print(f"No data for year {year}, skipping.")
-            continue
-        
-        try:
-            result = run_binary_model(
-                df_year, formula, model_type="probit", cluster_var=cluster_var
-            )
-            results[year] = result
-            
-            # Print key info for dummies, assuming you want that
-            # Get dummy vars from the formula or pass as argument (for example)
-            # Here you could parse formula or just pass dummy_vars explicitly
-            dummy_vars = [term for term in result.params.index if term != 'Intercept']
-            print_model_table(result, dummy_vars)
-        except Exception as e:
-            print(f"Error fitting model for year {year}: {e}")
-    
-    return results
 
 # === USAGE ===
 if __name__ == "__main__":
@@ -375,29 +345,29 @@ if __name__ == "__main__":
         base_parquet_path="~/Downloads/BAföG Results/parquets/bafoeg_calculations.parquet",
         registry_merges=DEFAULT_REGISTRY_MERGES,
         external_merges=DEFAULT_EXTERNAL_MERGES,
-        categoricals = [],
+        categoricals=[],
         missing_codes=DEFAULT_MISSING_CODES,
         cluster_var="pid",
-        Z_vars = [
+        weight_var="phrf",
+        Z_vars=[
             "age", 
             "joint_income_log", 
             "theoretical_bafög", 
             "gross_monthly_income_log",
             "plh0204_h", 
             "plh0253",
-            "plh0254", 
-
+            "plh0254",
         ],
-        B_vars = ["sex", 
-                  "has_partner", 
-                  "lives_at_home", 
-                  "any_sibling_bafog", 
-                  "east_background", 
-                  "parent_high_edu",
-                  "any_sibling_bafog",
-                  ], 
-        )
-
+        B_vars=[
+            "sex", 
+            "has_partner", 
+            "lives_at_home", 
+            "any_sibling_bafog", 
+            "east_background", 
+            "parent_high_edu",
+            "any_sibling_bafog",
+        ]
+    )
 
 
     # === EXPORT THE MODELS ===
