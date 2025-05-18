@@ -2,84 +2,104 @@ from pathlib import Path
 import joblib
 import pandas as pd
 
-# Load your model results
-model_results_dir = Path("~/Downloads/model_results").expanduser()
-logit_pkl = model_results_dir / "logit_model.pkl"
-probit_pkl = model_results_dir / "probit_model.pkl"
+# Set save path
+model_results_dir = Path("/home/alexer/Documents/MScEcon/Semester 2/Master Thesis I/thesis/tables")
 
-# Load models
+# Load model files
+logit_pkl = Path("~/Downloads/model_results/logit_model.pkl").expanduser()
+probit_pkl = Path("~/Downloads/model_results/probit_model.pkl").expanduser()
+
 result = joblib.load(logit_pkl)
 result_probit = joblib.load(probit_pkl)
 
-# Compute AMEs for each
-marg_eff_logit = result.get_margeff(at='overall')
-marg_eff_probit = result_probit.get_margeff(at='overall')
+# Get marginal effects
+marg_eff_logit = result.get_margeff(at='overall').summary_frame()
+marg_eff_probit = result_probit.get_margeff(at='overall').summary_frame()
 
-def add_stars(estimate, pval):
-    if pd.isnull(estimate):
-        return ""
-    if pd.isnull(pval):
-        return f"{estimate:.3f}"
+# Column name map
+ame_colmap = {'dy/dx': 'dy/dx', 'se': 'Std. Err.', 'p': 'Pr(>|z|)'}
+
+# Significance star helper
+def add_stars(est, pval):
+    if pd.isnull(est) or pd.isnull(pval):
+        return f"{est:.3f}" if pd.notnull(est) else ""
     if pval < 0.01:
-        return f"{estimate:.3f}***"
+        return f"{est:.3f}***"
     elif pval < 0.05:
-        return f"{estimate:.3f}**"
+        return f"{est:.3f}**"
     elif pval < 0.1:
-        return f"{estimate:.3f}*"
+        return f"{est:.3f}*"
     else:
-        return f"{estimate:.3f}"
+        return f"{est:.3f}"
 
-def coef_table_with_stars(sm_table, prefix):
-    df = sm_table[['Coef.', 'Std.Err.', 'P>|z|']].copy()
-    df['Coef.'] = [add_stars(est, p) for est, p in zip(df['Coef.'], df['P>|z|'])]
-    df = df[['Coef.', 'Std.Err.']]
-    df.columns = pd.MultiIndex.from_product([[prefix], df.columns])
-    return df
+# Extract relevant info
+def extract_row(name, pretty_name):
+    try:
+        # Probit
+        probit_coef = result_probit.params[name]
+        probit_se = result_probit.bse[name]
+        probit_pval = result_probit.pvalues[name]
 
-def ame_table_with_stars(ame, prefix):
-    ame = ame.copy()
-    if 'P>|z|' in ame.columns:
-        pval_col = 'P>|z|'
-    elif 'Pr(>|z|)' in ame.columns:
-        pval_col = 'Pr(>|z|)'
-    else:
-        pval_col = None
-    if pval_col:
-        ame['dy/dx'] = [add_stars(dydx, p) for dydx, p in zip(ame['dy/dx'], ame[pval_col])]
-    else:
-        ame['dy/dx'] = ame['dy/dx'].map(lambda x: f"{x:.3f}" if pd.notnull(x) else "")
-    ame = ame[['dy/dx', 'Std. Err.']]
-    ame.columns = pd.MultiIndex.from_product([[prefix], ame.columns])
-    return ame
+        probit_ame = marg_eff_probit.loc[name, ame_colmap['dy/dx']]
+        probit_ame_se = marg_eff_probit.loc[name, ame_colmap['se']]
+        probit_ame_pval = marg_eff_probit.loc[name, ame_colmap['p']]
 
-# Build each table with asterisks
-logit_coef = coef_table_with_stars(result.summary2().tables[1], "Logit Coef.")
-probit_coef = coef_table_with_stars(result_probit.summary2().tables[1], "Probit Coef.")
-logit_ame = ame_table_with_stars(marg_eff_logit.summary_frame(), "Logit AME")
-probit_ame = ame_table_with_stars(marg_eff_probit.summary_frame(), "Probit AME")
+        # Logit
+        logit_coef = result.params[name]
+        logit_se = result.bse[name]
+        logit_pval = result.pvalues[name]
 
-# Align index to ensure all rows/vars match (in case of any mismatch)
-all_index = logit_coef.index.union(logit_ame.index).union(probit_coef.index).union(probit_ame.index)
-logit_coef = logit_coef.reindex(all_index)
-logit_ame = logit_ame.reindex(all_index)
-probit_coef = probit_coef.reindex(all_index)
-probit_ame = probit_ame.reindex(all_index)
+        logit_ame = marg_eff_logit.loc[name, ame_colmap['dy/dx']]
+        logit_ame_se = marg_eff_logit.loc[name, ame_colmap['se']]
+        logit_ame_pval = marg_eff_logit.loc[name, ame_colmap['p']]
 
-# Concatenate all into one DataFrame
-all_df = pd.concat([logit_coef, logit_ame, probit_coef, probit_ame], axis=1)
+        return f"{pretty_name} & {add_stars(logit_coef, logit_pval)} & {logit_se:.3f} & {add_stars(logit_ame, logit_ame_pval)} & {logit_ame_se:.3f} & {add_stars(probit_coef, probit_pval)} & {probit_se:.3f} & {add_stars(probit_ame, probit_ame_pval)} & {probit_ame_se:.3f} \\\\"
 
-# --- Force all Std. Err. columns to 3 decimals as strings ---
-for col in all_df.columns:
-    if col[1] == 'Std. Err.':
-        all_df[col] = all_df[col].apply(lambda x: f"{x:.3f}" if pd.notnull(x) and x != '' else "")
+    except KeyError:
+        return f"{pretty_name} & & & & & & & & \\\\"
 
-# Export to LaTeX
-out_tex = model_results_dir / "logit_probit_ame_table.tex"
-with open(out_tex, "w") as f:
-    f.write(all_df.to_latex(
-        na_rep="", multicolumn=True, multirow=True, escape=False,
-        caption="Logit/Probit coefficients and AMEs (Average Marginal Effects). Significance: * p<0.1, ** p<0.05, *** p<0.01",
-        label="tab:logit-probit-ame"
-    ))
+# Variables and labels
+row_order = [
+    ("theoretical_bafög", "Simulated BAföG amount"),
+    ("lives_at_home", "Student living at parents’ home"),
+    ("joint_income_log", "Log Parental Income"),
+    ("gross_monthly_income_log", "Log Gross income"),
+    ("age", "Age"),
+    ("sex", "Female"),
+    ("has_partner", "Has partner"),
+    ("any_sibling_bafog", "Sibling claimed BAföG before"),
+    ("east_background", "East background"),
+    ("parent_high_edu", "Parents are highly educated"),
+    ("has_migback", "Migration background"),
+]
 
-print(f"Exported LaTeX table to {out_tex}")
+# R² and N
+r2_logit = result.prsquared
+r2_probit = result_probit.prsquared
+n_obs = int(result.nobs)
+
+# Start writing LaTeX
+out_path = model_results_dir / "regression_table.tex"
+with open(out_path, "w") as f:
+    f.write("\\begin{table}\n")
+    f.write("\\renewcommand{\\arraystretch}{1.25}\n")
+    f.write("\\footnotesize\n")
+    f.write("\\begin{tabular}{lllllllll}\n")
+    f.write("\\toprule\n")
+    f.write(" & \\multicolumn{4}{c}{Logit} & \\multicolumn{4}{c}{Probit} \\\\\n")
+    f.write("\\cmidrule(lr){2-5} \\cmidrule(lr){6-9}\n")
+    f.write(" & Coef. & SE & AME & SE & Coef. & SE & AME & SE \\\\\n")
+    f.write("\\midrule\n")
+
+    for varname, pretty in row_order:
+        f.write(extract_row(varname, pretty) + "\n")
+
+    f.write("\\midrule\n")
+    f.write(f"McFadden $R^2$ & \\multicolumn{{4}}{{l}}{{{r2_logit:.4f}}} & \\multicolumn{{4}}{{l}}{{{r2_probit:.4f}}} \\\\\n")
+    f.write(f"Observations & \\multicolumn{{8}}{{l}}{{{n_obs}}} \\\\\n")
+    f.write("\\bottomrule\n")
+    f.write("\\end{tabular}\n")
+    f.write("\\caption{Logit/Probit coefficients and AMEs (Average Marginal Effects). Significance: $^{{*}} p < 0.1$, $^{{**}} p < 0.05$, $^{{***}} p < 0.01$.}\n")
+    f.write("\\end{table}\n")
+
+print(f"Exported LaTeX table to {out_path}")
