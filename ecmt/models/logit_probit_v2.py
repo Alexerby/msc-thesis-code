@@ -232,18 +232,11 @@ def run_binary_model(
     model_cls = {"logit": Logit, "probit": Probit}[model_type]
     model = model_cls(endog=y, exog=X)
 
-<<<<<<< HEAD
     # Fit model
     result = model.fit(cov_type='cluster' if cluster_var else cov_type,
                        cov_kwds={'groups': groups} if cluster_var else None,
                        weights=weights)
     return result
-=======
-    if weight_var:
-        fit_kwargs['weights'] = df[weight_var]
-
-    return model.fit(**fit_kwargs)
->>>>>>> 176e75a3bd911d48fccabd442a89575810a2cd97
 
 def print_model_table(result, dummy_vars):
     """Print readable regression table for key dummies."""
@@ -318,14 +311,8 @@ def full_bafoeg_pipeline(
         cov_type=cov_type,
         weight_var=weight_var
     )
-<<<<<<< HEAD
     
     print(result_logit.summary())
-
-
-=======
-    ...
->>>>>>> 176e75a3bd911d48fccabd442a89575810a2cd97
     print("\n=== Fitting PROBIT model ===")
     result_probit = run_binary_model(
         df, 
