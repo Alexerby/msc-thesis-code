@@ -179,20 +179,16 @@ def make_dummies(df, categoricals, drop_first=True):
 def add_income_vars(df):
     """
     Clean and log-transform income-related variables.
-    Overwrites the original columns.
+    Adds new columns: joint_income_log and gross_monthly_income_log
     """
-    income_columns = [
-        "joint_income",
-        "gross_monthly_income",
-    ]
-    
-    for col in income_columns:
-        if col in df.columns:
-            # Set non-positive and missing values to NaN
-            df[col] = pd.to_numeric(df[col], errors='coerce')  # ensure numeric
-            df[col] = df[col].where(df[col] > 0, np.nan)
-            df[col] = np.log(df[col])
-    
+    if "joint_income" in df.columns:
+        df["joint_income"] = pd.to_numeric(df["joint_income"], errors='coerce')
+        df["joint_income_log"] = np.where(df["joint_income"] > 0, np.log(df["joint_income"]), np.nan)
+
+    if "gross_monthly_income" in df.columns:
+        df["gross_monthly_income"] = pd.to_numeric(df["gross_monthly_income"], errors='coerce')
+        df["gross_monthly_income_log"] = np.where(df["gross_monthly_income"] > 0, np.log(df["gross_monthly_income"]), np.nan)
+
     return df
 
 def restrict_to_eligible(df, eligibility_col="theoretical_eligibility", received_col="received_bafög"):
@@ -241,12 +237,12 @@ def print_model_table(result, dummy_vars):
 
 def full_bafoeg_pipeline(
     base_parquet_path: str,
+    Z_vars: List[str],
+    B_vars: List[str],
+    categoricals: List[str],
     registry_merges: Optional[List[Dict]] = None,
     external_merges: Optional[List[Dict]] = None,
-    categoricals: Optional[List[str]] = None,
     missing_codes: Optional[List[int]] = None,
-    Z_vars: Optional[List[str]] = None,
-    B_vars: Optional[List[str]] = None,
     cluster_var: Optional[str] = None,
     cov_type: Optional[str] = None,
 ):
@@ -279,8 +275,8 @@ def full_bafoeg_pipeline(
             df.loc[df[col].isin(DEFAULT_MISSING_CODES), col] = pd.NA
 
     # Variable groups (pass as args for flexibility)
-    Z_vars = Z_vars or ["age", "joint_income", "gross_monthly_income", "theoretical_bafög"]
-    B_vars = B_vars or ["sex", "has_partner", "lives_at_home", "any_sibling_bafog", "east_background"]
+    # Z_vars = Z_vars or ["age", "joint_income", "gross_monthly_income", "theoretical_bafög"]
+    # B_vars = B_vars or ["sex", "has_partner", "lives_at_home", "any_sibling_bafog", "east_background"]
 
     # Remove plh0253 and plh0254 from X_vars if present, as they will be added via interaction in formula
     X_vars = [v for v in Z_vars + B_vars + D_vars if v not in ["plh0253", "plh0254"]]
@@ -288,7 +284,7 @@ def full_bafoeg_pipeline(
 
 
     # Construct formula with main effects, interaction, and dummies
-    formula = "non_take_up ~ " + " + ".join(X_vars)
+    formula = "non_take_up ~ " + " + ".join(X_vars) + " -1"
 
     # === APPLY WEIGHTS ===
     if "phrf" not in df.columns:
@@ -373,18 +369,23 @@ if __name__ == "__main__":
         categoricals = [],  # No categoricals, migback now handled as dummy
         missing_codes=DEFAULT_MISSING_CODES,
         cov_type="HC2",
-        Z_vars = ["age", 
-                  "joint_income", 
-                  "gross_monthly_income", 
-                  "theoretical_bafög", 
-                  "plh0204_h",
-                  ],
+        Z_vars = [
+            "age", 
+            "joint_income_log", 
+            "theoretical_bafög", 
+            "gross_monthly_income_log",
+            "plh0204_h", 
+            "plh0253",
+            "plh0254", 
+
+        ],
         B_vars = ["sex", 
                   "has_partner", 
                   "lives_at_home", 
                   "any_sibling_bafog", 
                   "east_background", 
                   "parent_high_edu",
+                  "any_sibling_bafog",
                   ], 
         )
 
