@@ -200,12 +200,15 @@ def restrict_to_eligible(df, eligibility_col="theoretical_eligibility", received
 
 # === MODELING ===
 
+# === MODELING ===
+
 def run_binary_model(
     df: pd.DataFrame,
     formula: str,
     model_type: str = "logit",
     cluster_var: Optional[str] = None,
     cov_type: Optional[str] = None,
+    weight_var: Optional[str] = None,
     **fit_kwargs
 ):
     from patsy import dmatrices
@@ -222,7 +225,9 @@ def run_binary_model(
 
     needed_cols = list(y.columns) + list(X.columns)
     if cluster_var:
-        needed_cols += [cluster_var]
+        needed_cols.append(cluster_var)
+    if weight_var:
+        needed_cols.append(weight_var)
 
     df = df.dropna(subset=needed_cols).copy()
 
@@ -233,6 +238,9 @@ def run_binary_model(
         fit_kwargs['cov_kwds'] = {'groups': df[cluster_var]}
     elif cov_type is not None:
         fit_kwargs['cov_type'] = cov_type
+
+    if weight_var:
+        fit_kwargs['weights'] = df[weight_var]
 
     return model.fit(**fit_kwargs)
 
@@ -261,6 +269,7 @@ def full_bafoeg_pipeline(
     missing_codes: Optional[List[int]] = None,
     cluster_var: Optional[str] = None,
     cov_type: Optional[str] = None,
+    weight_var: Optional[str] = None,
 ):
     pipeline = BafoegDataPipeline(
         base_parquet_path=base_parquet_path,
@@ -290,10 +299,6 @@ def full_bafoeg_pipeline(
         if col in df.columns:
             df.loc[df[col].isin(DEFAULT_MISSING_CODES), col] = pd.NA
 
-    # Variable groups (pass as args for flexibility)
-    # Z_vars = Z_vars or ["age", "joint_income", "gross_monthly_income", "theoretical_bafög"]
-    # B_vars = B_vars or ["sex", "has_partner", "lives_at_home", "any_sibling_bafog", "east_background"]
-
     # Remove plh0253 and plh0254 from X_vars if present, as they will be added via interaction in formula
     X_vars = [v for v in Z_vars + B_vars + D_vars if v not in ["plh0253", "plh0254"]]
 
@@ -310,15 +315,9 @@ def full_bafoeg_pipeline(
         model_type="logit", 
         cluster_var=cluster_var, 
         cov_type=cov_type,
+        weight_var=weight_var
     )
-    print(result.summary())
-    print(f"McFadden's pseudo-R² (logit): {result.prsquared:.4f}")
-
-    print_model_table(result, D_vars)
-    marg_eff_logit = result.get_margeff(at='overall')
-    print("\nLOGIT Average Marginal Effects (AMEs):")
-    print(marg_eff_logit.summary())
-
+    ...
     print("\n=== Fitting PROBIT model ===")
     result_probit = run_binary_model(
         df, 
@@ -326,6 +325,7 @@ def full_bafoeg_pipeline(
         model_type="probit", 
         cluster_var=cluster_var, 
         cov_type=cov_type,
+        weight_var=weight_var
     )
     print(result_probit.summary())
     print(f"McFadden's pseudo-R² (probit): {result_probit.prsquared:.4f}")
@@ -375,29 +375,29 @@ if __name__ == "__main__":
         base_parquet_path="~/Downloads/BAföG Results/parquets/bafoeg_calculations.parquet",
         registry_merges=DEFAULT_REGISTRY_MERGES,
         external_merges=DEFAULT_EXTERNAL_MERGES,
-        categoricals = [],
+        categoricals=[],
         missing_codes=DEFAULT_MISSING_CODES,
         cluster_var="pid",
-        Z_vars = [
+        weight_var="phrf",
+        Z_vars=[
             "age", 
             "joint_income_log", 
             "theoretical_bafög", 
             "gross_monthly_income_log",
             "plh0204_h", 
             "plh0253",
-            "plh0254", 
-
+            "plh0254",
         ],
-        B_vars = ["sex", 
-                  "has_partner", 
-                  "lives_at_home", 
-                  "any_sibling_bafog", 
-                  "east_background", 
-                  "parent_high_edu",
-                  "any_sibling_bafog",
-                  ], 
-        )
-
+        B_vars=[
+            "sex", 
+            "has_partner", 
+            "lives_at_home", 
+            "any_sibling_bafog", 
+            "east_background", 
+            "parent_high_edu",
+            "any_sibling_bafog",
+        ]
+    )
 
 
     # === EXPORT THE MODELS ===
