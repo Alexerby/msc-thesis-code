@@ -191,10 +191,13 @@ def full_bafoeg_pipeline(
         df.loc[df_fs.index, "theoretical_bafög_hat"] = first_stage_model.fittedvalues
         df["theoretical_bafög_hat"] = df["theoretical_bafög_hat"].astype(float)
 
+        # Save residuals in df aligned to first stage index
+        df.loc[df_fs.index, "theoretical_bafög_resid"] = first_stage_model.resid
+
         # === Model 3 & 4: IV Logit & IV Probit ===
         X_vars_iv = Z_vars_iv + ["theoretical_bafög_hat"] + B_vars + D_vars
         formula_iv = "non_take_up ~ " + " + ".join(X_vars_iv) + " -1"
-
+        
         print("\n=== [3] IV LOGIT model (fitted theoretical_bafög) ===")
         result_iv_logit = run_binary_model(df, formula_iv, "logit", cluster_var, cov_type, weight_var)
         print(result_iv_logit.summary())
@@ -203,16 +206,39 @@ def full_bafoeg_pipeline(
         result_iv_probit = run_binary_model(df, formula_iv, "probit", cluster_var, cov_type, weight_var)
         print(result_iv_probit.summary())
 
-    else:
-        result_iv_logit = None
-        result_iv_probit = None
 
-    return result_logit, result_probit, result_iv_logit, result_iv_probit, first_stage_model
+        # Define the formula including residuals
+        formula_iv_with_resid = formula_iv + " + theoretical_bafög_resid"
+
+        print("\n=== [3] Logit IV with residuals ===")
+        result_iv_with_resid_logit = run_binary_model(df, formula_iv_with_resid, "logit", cluster_var, cov_type, weight_var)
+        print(result_iv_with_resid_logit.summary())  # print correct model here
+
+        print("\n=== [4] Probit IV with residuals ===")
+        result_iv_with_resid_probit = run_binary_model(df, formula_iv_with_resid, "probit", cluster_var, cov_type, weight_var)
+        print(result_iv_with_resid_probit.summary())  # print correct model here
+
+        return (
+            result_logit,
+            result_probit,
+            result_iv_logit,
+            result_iv_probit,
+            first_stage_model,
+            result_iv_with_resid_logit,
+            result_iv_with_resid_probit,
+            )
 
 # === EXECUTION ===
 
 if __name__ == "__main__":
-    result_logit, result_probit, result_iv_logit, result_iv_probit, first_stage_model = full_bafoeg_pipeline(
+    (result_logit, 
+     result_probit, 
+     result_iv_logit, 
+     result_iv_probit, 
+     first_stage_model, 
+     result_iv_with_resid_logit,
+     result_iv_with_resid_probit
+     ) = full_bafoeg_pipeline(
         base_parquet_path="~/Downloads/BAföG Results/parquets/bafoeg_calculations.parquet",
         external_merges=DEFAULT_EXTERNAL_MERGES,
         categoricals=[],
@@ -242,4 +268,8 @@ if __name__ == "__main__":
         joblib.dump(result_iv_probit, model_results_dir / "iv_probit_model.pkl")
     if first_stage_model:
         with open(model_results_dir / "first_stage_summary.txt", "w") as f:
-            f.write(first_stage_model.summary().as_text())
+            joblib.dump(first_stage_model, model_results_dir / "first_stage_model.pkl")
+    if result_iv_with_resid_logit: 
+            joblib.dump(result_iv_with_resid_logit, model_results_dir / "iv_with_resid_logit.pkl")
+    if result_iv_with_resid_probit: 
+            joblib.dump(result_iv_with_resid_probit, model_results_dir / "iv_with_resid_probit.pkl")
