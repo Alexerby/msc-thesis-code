@@ -14,7 +14,7 @@ class BafoegParquetExporter:
         self.base_name = base_name
 
         # Use user's Downloads directory
-        downloads_dir = os.path.expanduser("~/Downloads/BAföG Results")
+        downloads_dir = os.path.expanduser("~//Documents/MScEcon/Semester 2/Master Thesis I/Microsimulation")
         self.output_dir = os.path.join(downloads_dir, base_name)
         os.makedirs(self.output_dir, exist_ok=True)
 
