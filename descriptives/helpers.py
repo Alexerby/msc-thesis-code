@@ -45,7 +45,7 @@ def get_output_paths(which: str = None):
 def load_data(
     df_name: str,
     from_parquet: bool = False,
-    parquet_dir: str = "~/Downloads/BAföG Results/parquets"
+    parquet_dir: str = "~/Documents/MScEcon/Semester 2/Master Thesis I/Microsimulation/parquets"
 ) -> pd.DataFrame:
     """
     Load student-level data either from a precomputed Parquet file or by building the full pipeline.
