@@ -9,7 +9,7 @@ from statsmodels.api import OLS, add_constant
 
 from typing import List, Dict, Optional
 from ecmt.parquet_loader import BafoegParquetLoader
-from ..helpers import load_config
+from misc.utility_functions import load_project_config
 import joblib
 import patsy
 
@@ -255,7 +255,7 @@ if __name__ == "__main__":
         ],
     )
 
-    config = load_config()
+    config = load_project_config()
     model_results_dir = Path(config["paths"]["results"]["model_results"]).expanduser()
     model_results_dir.mkdir(parents=True, exist_ok=True)
 
