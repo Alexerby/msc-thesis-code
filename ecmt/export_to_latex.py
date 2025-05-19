@@ -1,6 +1,11 @@
 from pathlib import Path
 import joblib
 import pandas as pd
+import numpy as np 
+
+from statsmodels.genmod.generalized_linear_model import GLM
+from statsmodels.genmod.families import Binomial
+from statsmodels.genmod.families.links import logit as logit_link, probit as probit_link
 
 from ecmt.helpers import load_config
 
@@ -11,18 +16,30 @@ models_results_dir = Path(config["paths"]["results"]["model_results"]).expanduse
 save_dir = Path("/home/alexer/Documents/MScEcon/Semester 2/Master Thesis I/thesis/tables")
 
 # Load model files
-logit_pkl = Path("~/Downloads/model_results/logit_model.pkl").expanduser()
-probit_pkl = Path("~/Downloads/model_results/probit_model.pkl").expanduser()
+logit_pkl = Path(models_results_dir / "logit_model.pkl")
+probit_pkl = Path(models_results_dir / "probit_model.pkl")
 
-result = joblib.load(logit_pkl)
+
+result_logit = joblib.load(logit_pkl)
 result_probit = joblib.load(probit_pkl)
 
 # Get marginal effects
-marg_eff_logit = result.get_margeff(at='overall').summary_frame()
+marg_eff_logit = result_logit.get_margeff(at='overall').summary_frame()
 marg_eff_probit = result_probit.get_margeff(at='overall').summary_frame()
 
 # Column name map
 ame_colmap = {'dy/dx': 'dy/dx', 'se': 'Std. Err.', 'p': 'Pr(>|z|)'}
+
+
+# === Utility functions ===
+def compute_pseudo_r2(fitted_model, model_class, link_func):
+    y = fitted_model.model.endog
+    X_null = pd.DataFrame({"intercept": np.ones(len(y))})
+    model_null = model_class(y, X_null, family=Binomial(link=link_func))
+    results_null = model_null.fit()
+    llf_full = fitted_model.llf
+    llf_null = results_null.llf
+    return 1 - (llf_full / llf_null)
 
 # Significance star helper
 def add_stars(est, pval):
@@ -47,9 +64,9 @@ def extract_row(name, pretty_name):
         probit_ame_se = marg_eff_probit.loc[name, ame_colmap['se']]
         probit_ame_pval = marg_eff_probit.loc[name, ame_colmap['p']]
 
-        logit_coef = result.params[name]
-        logit_se = result.bse[name]
-        logit_pval = result.pvalues[name]
+        logit_coef = result_logit.params[name]
+        logit_se = result_logit.bse[name]
+        logit_pval = result_logit.pvalues[name]
         logit_ame = marg_eff_logit.loc[name, ame_colmap['dy/dx']]
         logit_ame_se = marg_eff_logit.loc[name, ame_colmap['se']]
         logit_ame_pval = marg_eff_logit.loc[name, ame_colmap['p']]
@@ -81,10 +98,11 @@ categories = {
     ],
 }
 
-# R² and N
-r2_logit = result.prsquared
-r2_probit = result_probit.prsquared
-n_obs = int(result.nobs)
+
+# === R² and observations ===
+r2_logit = compute_pseudo_r2(result_logit, GLM, logit_link())
+r2_probit = compute_pseudo_r2(result_probit, GLM, probit_link())
+n_obs = int(result_logit.nobs)
 
 # Start writing LaTeX
 out_path = save_dir / "regression_table.tex"
