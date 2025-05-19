@@ -69,15 +69,10 @@ def create_dataframe(
     out = log_incomes(out, "excess_income_stu")
     out = log_incomes(out, "excess_income_par")
 
-
-
-
     out["non_take_up_obs"] = (
         (out["received_bafög"] == 0) &
         (out["theoretical_bafög"] > 0)
     )
-
-    out = out.merge(out, on=["pid", "syear"], how="left")
 
     return out
 
