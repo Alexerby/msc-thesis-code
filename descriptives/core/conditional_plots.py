@@ -48,17 +48,6 @@ fig, ax = plt.subplots(figsize=(9, 5))
 # Plot the point estimate
 ax.plot(ntu_df["syear"], ntu_df["mean_ntu"], 'o-', color='black', label='Mean NTU')
 
-# Fill the area between lower and upper bounds
-# ax.fill_between(
-#     ntu_df["syear"],
-#     ntu_df["lower_bound"],
-#     ntu_df["upper_bound"],
-#     color='gray',
-#     alpha=0.1,
-#     label='Confidence band'
-# )
-
-
 
 # Plot lower and upper bounds with dashed lines
 ax.plot(ntu_df["syear"], ntu_df["lower_bound"], '--', color='gray', label='Lower bound')
