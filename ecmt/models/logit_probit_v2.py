@@ -9,7 +9,7 @@ from statsmodels.api import OLS, add_constant
 
 from typing import List, Dict, Optional
 from ecmt.parquet_loader import BafoegParquetLoader
-from ecmt.helpers import load_config
+from ..helpers import load_config
 import joblib
 import patsy
 
