@@ -20,6 +20,11 @@ def compute_conditional_probs_by_year(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute conditional probabilities Pr(R=r | M=m) for all combinations (r,m) in {0,1}²,
     grouped by survey year, expressed as percentages (0–100).
+    
+    Returns:
+        DataFrame with columns:
+            - syear
+            - P(NTU=1 | M=0), P(NTU=0 | M=0), P(NTU=1 | M=1), P(NTU=0 | M=1)
     """
     df = df.copy()
     df["M"] = df["theoretical_eligibility"].fillna(0).astype(int)
@@ -34,7 +39,8 @@ def compute_conditional_probs_by_year(df: pd.DataFrame) -> pd.DataFrame:
             g = group[group["M"] == m]
             total = len(g)
             for r in [0, 1]:
-                key = f"P(R={r} | M={m})"
+                ntu = 1 - r
+                key = f"P(NTU={ntu} | M={m})"
                 prob = 100 * (g["R"] == r).mean() if total > 0 else pd.NA
                 row[key] = prob
         results.append(row)
@@ -49,7 +55,7 @@ def compute_overall_conditional_probs(df: pd.DataFrame) -> pd.DataFrame:
     
     Returns:
         A single-row DataFrame with columns:
-            - P(R=0 | M=0), P(R=1 | M=0), P(R=0 | M=1), P(R=1 | M=1)
+            - P(NTU=1 | M=0), P(NTU=0 | M=0), P(NTU=1 | M=1), P(NTU=0 | M=1)
     """
     df = df.copy()
     df["M"] = df["theoretical_eligibility"].fillna(0).astype(int)
@@ -60,8 +66,16 @@ def compute_overall_conditional_probs(df: pd.DataFrame) -> pd.DataFrame:
         g = df[df["M"] == m]
         total = len(g)
         for r in [0, 1]:
-            key = f"P(R={r} | M={m})"
+            # original key (not used directly)
             prob = 100 * (g["R"] == r).mean() if total > 0 else pd.NA
+            
+            # map (r,m) to new label as requested
+            if r == 0:
+                ntu = 1
+            else:
+                ntu = 0
+
+            key = f"P(NTU={ntu} | M={m})"
             results[key] = prob
 
     return pd.DataFrame([results])

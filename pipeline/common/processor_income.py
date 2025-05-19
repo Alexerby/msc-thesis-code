@@ -1,8 +1,11 @@
 import pandas as pd
+import numpy as np
 
 from pipeline.common.data_cleaning import (
         winsorize_upper_tail
         )
+
+from pipeline.sensitivity_analysis.noise import add_income_noise
 
 def merge_income(
     df: pd.DataFrame,
@@ -58,9 +61,34 @@ def merge_income(
         how="inner"
     )
 
-    # Apply winsorization at upper 2.5% tail
-    # out = winsorize_upper_tail(out, 0.05)
-
     return out
+
+
+
+
+
+def log_incomes(df: pd.DataFrame, col_name: str) -> pd.DataFrame:
+    """
+    Log-transform 'gross_monthly_income' and 'gross_annual_income' columns in-place,
+    safely handling missing or negative values.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing 'gross_monthly_income' and 'gross_annual_income' columns.
+
+    Returns
+    -------
+    pd.DataFrame
+        The same DataFrame with log-transformed income columns.
+    """
+    df[col_name] = df[col_name].astype(float)
+
+    df.loc[df[col_name] < 0, col_name] = np.nan
+
+    df[col_name] = np.log(df[col_name] + 1)
+
+    return df
+
 
 

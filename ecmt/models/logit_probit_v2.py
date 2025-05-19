@@ -2,7 +2,11 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-from statsmodels.discrete.discrete_model import Probit, Logit
+from statsmodels.genmod.generalized_linear_model import GLM
+from statsmodels.genmod.families import Binomial
+from statsmodels.genmod.families.links import logit as logit_link, probit as probit_link
+from statsmodels.api import OLS, add_constant
+
 from typing import List, Dict, Optional
 from ecmt.parquet_loader import BafoegParquetLoader
 from ecmt.helpers import load_config
@@ -100,34 +104,36 @@ def restrict_to_eligible(df, eligibility_col="theoretical_eligibility", received
 
 # === MODELING ===
 
+
 def run_binary_model(df, formula, model_type="logit", cluster_var=None, cov_type=None, weight_var=None, **fit_kwargs):
     y, X = patsy.dmatrices(formula, data=df, return_type="dataframe")
+
     needed_cols = list(y.columns) + list(X.columns)
     if cluster_var:
         needed_cols.append(cluster_var)
     if weight_var:
         needed_cols.append(weight_var)
-    df = df.dropna(subset=needed_cols).copy()
-    y = y.loc[df.index]
-    X = X.loc[df.index]
 
-    weights = df[weight_var] if weight_var else None
-    groups = df[cluster_var] if cluster_var else None
+    df_clean = df.dropna(subset=needed_cols).copy()
 
-    model_cls = {"logit": Logit, "probit": Probit}[model_type]
-    model = model_cls(endog=y, exog=X)
+    y = y.loc[df_clean.index]
+    X = X.loc[df_clean.index]
 
-    fit_args = dict()
+    weights = df_clean[weight_var] if weight_var else None
+    groups = df_clean[cluster_var] if cluster_var else None
+
+    link_func = {"logit": logit_link(), "probit": probit_link()}[model_type]
+    model = GLM(y, X, family=Binomial(link=link_func), var_weights=weights)
+
+    fit_args = {}
     if cluster_var:
         fit_args["cov_type"] = "cluster"
         fit_args["cov_kwds"] = {"groups": groups}
     elif cov_type:
         fit_args["cov_type"] = cov_type
 
-    if weight_var:
-        fit_args["weights"] = weights
-
     return model.fit(**fit_args, **fit_kwargs)
+
 
 # === PIPELINE ===
 
@@ -155,33 +161,63 @@ def full_bafoeg_pipeline(
         df, more_dummies = make_dummies(df, categoricals, drop_first=True)
         D_vars += more_dummies
 
-    X_vars = Z_vars + B_vars + D_vars
-    formula = "non_take_up ~ " + " + ".join(X_vars) + " -1"
+    # === Model 1 & 2: Logit & Probit (direct, no IV) ===
+    X_vars_direct = Z_vars + B_vars + D_vars
+    formula_direct = "non_take_up ~ " + " + ".join(X_vars_direct) + " -1"
 
-    print("\n=== Fitting LOGIT model ===")
-    result_logit = run_binary_model(df, formula, "logit", cluster_var, cov_type, weight_var)
+    print("\n=== [1] Standard LOGIT model ===")
+    result_logit = run_binary_model(df, formula_direct, "logit", cluster_var, cov_type, weight_var)
     print(result_logit.summary())
-    marg_eff_logit = result_logit.get_margeff(at='overall')
-    print(marg_eff_logit.summary())
 
-    print("\n=== Fitting PROBIT model ===")
-    result_probit = run_binary_model(df, formula, "probit", cluster_var, cov_type, weight_var)
+    print("\n=== [2] Standard PROBIT model ===")
+    result_probit = run_binary_model(df, formula_direct, "probit", cluster_var, cov_type, weight_var)
     print(result_probit.summary())
-    marg_eff_probit = result_probit.get_margeff(at='overall')
-    print("\nPROBIT Average Marginal Effects (AMEs):")
-    print(marg_eff_probit.summary())
 
-    print(df.shape)
-    return result_logit, result_probit
+    # === First Stage for IV ===
+    first_stage_model = None
+    if "theoretical_bafög" in Z_vars and "total_base_need" in df.columns:
+        print("\n=== First Stage: theoretical_bafög ~ total_base_need + controls ===")
+        Z_vars_iv = [v for v in Z_vars if v != "theoretical_bafög"]
+        first_stage_controls = Z_vars_iv + B_vars + D_vars + ["total_base_need"]
+        df_fs = df.dropna(subset=["theoretical_bafög"] + first_stage_controls).copy()
+
+        y_fs = df_fs["theoretical_bafög"]
+        X_fs = add_constant(df_fs[first_stage_controls])
+        first_stage_model = OLS(y_fs, X_fs).fit()
+        print(first_stage_model.summary())
+        print("First-stage R²:", round(first_stage_model.rsquared, 4))
+        print("First-stage F-stat:", round(first_stage_model.fvalue, 2))
+
+        df.loc[df_fs.index, "theoretical_bafög_hat"] = first_stage_model.fittedvalues
+        df["theoretical_bafög_hat"] = df["theoretical_bafög_hat"].astype(float)
+
+        # === Model 3 & 4: IV Logit & IV Probit ===
+        X_vars_iv = Z_vars_iv + ["theoretical_bafög_hat"] + B_vars + D_vars
+        formula_iv = "non_take_up ~ " + " + ".join(X_vars_iv) + " -1"
+
+        print("\n=== [3] IV LOGIT model (fitted theoretical_bafög) ===")
+        result_iv_logit = run_binary_model(df, formula_iv, "logit", cluster_var, cov_type, weight_var)
+        print(result_iv_logit.summary())
+
+        print("\n=== [4] IV PROBIT model (fitted theoretical_bafög) ===")
+        result_iv_probit = run_binary_model(df, formula_iv, "probit", cluster_var, cov_type, weight_var)
+        print(result_iv_probit.summary())
+
+    else:
+        result_iv_logit = None
+        result_iv_probit = None
+
+    return result_logit, result_probit, result_iv_logit, result_iv_probit, first_stage_model
 
 # === EXECUTION ===
 
 if __name__ == "__main__":
-    result, result_probit = full_bafoeg_pipeline(
+    result_logit, result_probit, result_iv_logit, result_iv_probit, first_stage_model = full_bafoeg_pipeline(
         base_parquet_path="~/Downloads/BAföG Results/parquets/bafoeg_calculations.parquet",
         external_merges=DEFAULT_EXTERNAL_MERGES,
         categoricals=[],
         missing_codes=DEFAULT_MISSING_CODES,
+        # weight_var="phrf",
         cluster_var="pid",
         Z_vars=[
             "age", "age_sq", "joint_income_log", "theoretical_bafög",
@@ -196,5 +232,14 @@ if __name__ == "__main__":
     config = load_config()
     model_results_dir = Path(config["paths"]["results"]["model_results"]).expanduser()
     model_results_dir.mkdir(parents=True, exist_ok=True)
-    joblib.dump(result, model_results_dir / "logit_model.pkl")
+
+    # Save all model results
+    joblib.dump(result_logit, model_results_dir / "logit_model.pkl")
     joblib.dump(result_probit, model_results_dir / "probit_model.pkl")
+    if result_iv_logit:
+        joblib.dump(result_iv_logit, model_results_dir / "iv_logit_model.pkl")
+    if result_iv_probit:
+        joblib.dump(result_iv_probit, model_results_dir / "iv_probit_model.pkl")
+    if first_stage_model:
+        with open(model_results_dir / "first_stage_summary.txt", "w") as f:
+            f.write(first_stage_model.summary().as_text())

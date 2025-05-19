@@ -1,7 +1,7 @@
 from pathlib import Path
 import joblib
 import pandas as pd
-import numpy as np 
+import numpy as np
 
 from statsmodels.genmod.generalized_linear_model import GLM
 from statsmodels.genmod.families import Binomial
@@ -9,29 +9,31 @@ from statsmodels.genmod.families.links import logit as logit_link, probit as pro
 
 from ecmt.helpers import load_config
 
+# === CONFIGURATION ===
 config = load_config()
 models_results_dir = Path(config["paths"]["results"]["model_results"]).expanduser()
-
-# Set save path
 save_dir = Path("/home/alexer/Documents/MScEcon/Semester 2/Master Thesis I/thesis/tables")
 
-# Load model files
-logit_pkl = Path(models_results_dir / "logit_model.pkl")
-probit_pkl = Path(models_results_dir / "probit_model.pkl")
+# === INPUT & OUTPUT SELECTION ===
+logit_filename = "logit_model.pkl"
+probit_filename = "probit_model.pkl"
+latex_output_filename = "regression_table.tex"
 
+# === LOAD MODELS ===
+logit_pkl = models_results_dir / logit_filename
+probit_pkl = models_results_dir / probit_filename
 
 result_logit = joblib.load(logit_pkl)
 result_probit = joblib.load(probit_pkl)
 
-# Get marginal effects
+# === MARGINAL EFFECTS ===
 marg_eff_logit = result_logit.get_margeff(at='overall').summary_frame()
 marg_eff_probit = result_probit.get_margeff(at='overall').summary_frame()
 
-# Column name map
+# === AME COLUMN MAP ===
 ame_colmap = {'dy/dx': 'dy/dx', 'se': 'Std. Err.', 'p': 'Pr(>|z|)'}
 
-
-# === Utility functions ===
+# === UTILITY FUNCTIONS ===
 def compute_pseudo_r2(fitted_model, model_class, link_func):
     y = fitted_model.model.endog
     X_null = pd.DataFrame({"intercept": np.ones(len(y))})
@@ -41,7 +43,6 @@ def compute_pseudo_r2(fitted_model, model_class, link_func):
     llf_null = results_null.llf
     return 1 - (llf_full / llf_null)
 
-# Significance star helper
 def add_stars(est, pval):
     if pd.isnull(est) or pd.isnull(pval):
         return f"{est:.3f}" if pd.notnull(est) else ""
@@ -54,7 +55,6 @@ def add_stars(est, pval):
     else:
         return f"{est:.3f}"
 
-# Extract row function
 def extract_row(name, pretty_name):
     try:
         probit_coef = result_probit.params[name]
@@ -75,8 +75,7 @@ def extract_row(name, pretty_name):
     except KeyError:
         return f"{pretty_name} & & & & & & & & \\\\"
 
-# === Variable categories ===
-
+# === VARIABLE CATEGORIES ===
 categories = {
     "Main explanatory variables": [
         ("joint_income_log", "Parental Income$^\dagger$"),
@@ -98,20 +97,19 @@ categories = {
     ],
 }
 
-
-# === R² and observations ===
+# === R² AND SAMPLE SIZE ===
 r2_logit = compute_pseudo_r2(result_logit, GLM, logit_link())
 r2_probit = compute_pseudo_r2(result_probit, GLM, probit_link())
 n_obs = int(result_logit.nobs)
 
-# Start writing LaTeX
-out_path = save_dir / "regression_table.tex"
+# === WRITE LATEX TABLE ===
+out_path = save_dir / latex_output_filename
 with open(out_path, "w") as f:
     f.write("\\begin{table}\n")
-    f.write("\\caption{$\Pr(\mathrm{NTU} = 1 | \mathbf{X})$}\n")
+    f.write("\\caption{$\\Pr(\\mathrm{NTU} = 1 \\mid \\mathbf{X})$}\n")
     f.write("\\renewcommand{\\arraystretch}{1.25}\n")
     f.write("\\footnotesize\n")
-    f.write("\\centering\n") 
+    f.write("\\centering\n")
     f.write("\\begin{tabular}{lllllllll}\n")
     f.write("\\toprule\n")
     f.write(" & \\multicolumn{4}{c}{Logit} & \\multicolumn{4}{c}{Probit} \\\\\n")
@@ -131,7 +129,7 @@ with open(out_path, "w") as f:
     f.write("\\end{tabular}\n")
     f.write("\\caption*{Logit and Probit Coefficients and Average Marginal Effects}\n")
     f.write("\\label{tab:logit_probit_results}\n")
-    f.write("\\caption*{\small{Notes: Significance levels indicated by $^{{*}} p < 0.1$, $^{{**}} p < 0.05$, $^{{***}} p < 0.01$. Robust standard errors clustered at the student level. $^\dagger$ Indicates that the variable has been log-transformed.}}")
+    f.write("\\caption*{\\small{Notes: Significance levels: $^{{*}} p < 0.1$, $^{{**}} p < 0.05$, $^{{***}} p < 0.01$. Robust standard errors clustered at the student level. $^\\dagger$ Indicates that the variable has been log-transformed.}}\n")
     f.write("\\end{table}\n")
 
-print(f"Exported LaTeX table to {out_path}")
+print(f"✅ Exported LaTeX table to {out_path}")

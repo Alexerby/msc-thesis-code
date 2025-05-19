@@ -14,6 +14,8 @@ from pipeline.common.others import add_weight_col
 from pipeline.soep_bundle import SOEPDataBundle
 from pipeline.policy_bundle import PolicyTableBundle
 
+from pipeline.common.processor_income import log_incomes
+
 
 def create_dataframe(
     df: pd.DataFrame,
@@ -53,25 +55,31 @@ def create_dataframe(
 
 
     desired_order = [
-        # identifying keys
         "pid", "syear",
-        # need components
         "base_need", "housing_allowance", "insurance_supplement", "total_base_need",
-        # all excess‐income in logical order
         "excess_income_stu", "excess_income_par", "excess_income_assets",
-        # reported BAföG
         "received_bafög", "reported_bafög",
-        # theoretical outputs
         "theoretical_bafög", "theoretical_eligibility",
-        # any remaining columns...
     ]
     # Append any other columns that may follow
     rest = [c for c in out.columns if c not in desired_order]
-    out = out[desired_order + rest]
+    out = pd.DataFrame(out[desired_order + rest])
     
+    # Log excess incomes
+    out = log_incomes(out, "excess_income_stu")
+    out = log_incomes(out, "excess_income_par")
 
 
-    return pd.DataFrame(out)
+
+
+    out["non_take_up_obs"] = (
+        (out["received_bafög"] == 0) &
+        (out["theoretical_bafög"] > 0)
+    )
+
+    out = out.merge(out, on=["pid", "syear"], how="left")
+
+    return out
 
 
 def _merge_needs(
@@ -220,3 +228,5 @@ def merge_ffill(
     out[var_name] = out.groupby('pid')[var_name].ffill()
     
     return out
+
+
