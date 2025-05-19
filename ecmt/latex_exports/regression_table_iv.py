@@ -167,8 +167,8 @@ with open(out_path, "w") as f:
     f.write(f"First-stage F-stat & \\multicolumn{{8}}{{l}}{{{fs_fstat}}} \\\\\n")
     f.write("\\bottomrule\n")
     f.write("\\end{tabular}\n")
-    f.write("\\caption*{Logit and Probit Coefficients and Average Marginal Effects}\n")
-    f.write("\\label{tab:logit_probit_results}\n")
+    f.write("\\caption*{IV Logit and IV Probit Coefficients and Average Marginal Effects}\n")
+    f.write("\\label{tab:iv_logit_probit_results}\n")
 
 
     notes = (
