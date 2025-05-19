@@ -18,7 +18,7 @@ class BafoegExcelExporter:
         self.filename = filename
 
         # Output path directly in ~/Downloads/BAföG Results
-        downloads_dir = os.path.expanduser("~/Downloads/BAföG Results")
+        downloads_dir = os.path.expanduser("~//Documents/MScEcon/Semester 2/Master Thesis I/Microsimulation")
         os.makedirs(downloads_dir, exist_ok=True)
         self.output_path = os.path.join(downloads_dir, filename)
 
