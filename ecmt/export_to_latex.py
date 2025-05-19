@@ -2,8 +2,13 @@ from pathlib import Path
 import joblib
 import pandas as pd
 
+from ecmt.helpers import load_config
+
+config = load_config()
+models_results_dir = Path(config["paths"]["results"]["model_results"]).expanduser()
+
 # Set save path
-model_results_dir = Path("/home/alexer/Documents/MScEcon/Semester 2/Master Thesis I/thesis/tables")
+save_dir = Path("/home/alexer/Documents/MScEcon/Semester 2/Master Thesis I/thesis/tables")
 
 # Load model files
 logit_pkl = Path("~/Downloads/model_results/logit_model.pkl").expanduser()
@@ -57,12 +62,13 @@ def extract_row(name, pretty_name):
 
 categories = {
     "Main explanatory variables": [
+        ("joint_income_log", "Parental Income$^\dagger$"),
+        ("gross_monthly_income_log", "Student income$^\dagger$"),
         ("theoretical_bafög", "Simulated BAföG amount"),
-        ("gross_monthly_income_log", "Log Gross income"),
-        ("joint_income_log", "Log Parental Income"),
     ],
     "Demographics": [
         ("age", "Age"),
+        ("age_sq", "Age sq"),
         ("sex", "Female"),
         ("has_partner", "Has partner"),
         ("has_migback", "Migration background"),
@@ -81,11 +87,13 @@ r2_probit = result_probit.prsquared
 n_obs = int(result.nobs)
 
 # Start writing LaTeX
-out_path = model_results_dir / "regression_table.tex"
+out_path = save_dir / "regression_table.tex"
 with open(out_path, "w") as f:
     f.write("\\begin{table}\n")
+    f.write("\\caption{$\Pr(\mathrm{NTU} = 1 | \mathbf{X})$}\n")
     f.write("\\renewcommand{\\arraystretch}{1.25}\n")
     f.write("\\footnotesize\n")
+    f.write("\\centering\n") 
     f.write("\\begin{tabular}{lllllllll}\n")
     f.write("\\toprule\n")
     f.write(" & \\multicolumn{4}{c}{Logit} & \\multicolumn{4}{c}{Probit} \\\\\n")
@@ -103,7 +111,9 @@ with open(out_path, "w") as f:
     f.write(f"Observations & \\multicolumn{{8}}{{l}}{{{n_obs}}} \\\\\n")
     f.write("\\bottomrule\n")
     f.write("\\end{tabular}\n")
-    f.write("\\caption{Logit/Probit coefficients and AMEs (Average Marginal Effects). Significance: $^{{*}} p < 0.1$, $^{{**}} p < 0.05$, $^{{***}} p < 0.01$. Robust standard errors are clustered on student level.}\n")
+    f.write("\\caption*{Logit and Probit Coefficients and Average Marginal Effects}\n")
+    f.write("\\label{tab:logit_probit_results}\n")
+    f.write("\\caption*{\small{Notes: Significance levels indicated by $^{{*}} p < 0.1$, $^{{**}} p < 0.05$, $^{{***}} p < 0.01$. Robust standard errors clustered at the student level. $^\dagger$ Indicates that the variable has been log-transformed.}}")
     f.write("\\end{table}\n")
 
 print(f"Exported LaTeX table to {out_path}")
