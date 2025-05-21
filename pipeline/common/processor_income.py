@@ -91,4 +91,3 @@ def log_incomes(df: pd.DataFrame, col_name: str) -> pd.DataFrame:
     return df
 
 
-

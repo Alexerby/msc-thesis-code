@@ -1,10 +1,6 @@
 import pandas as pd
 import numpy as np
-from pandas.core.api import DataFrame
-
-
-
-from .need_components import merge_need_amounts 
+from .need_components import merge_need_amounts
 from .reported_amount import merge_reported_bafög
 from .eligibility_conditions import is_ineligible
 from .filters import clamp_small_theoretical_awards
@@ -35,8 +31,7 @@ def create_dataframe(
     out = _merge_needs(out, students_df, policy)
     out = _merge_all_excesses(out, students_df, parents_joint_df, assets_df)
     out = merge_reported_bafög(out, data)
-    
-
+ 
     out = _compute_theoretical_bafög(out, students_df, data.pl, data.pgen)
     out = clamp_small_theoretical_awards(out, threshold=50)
     out["theoretical_eligibility"] = (out["theoretical_bafög"] > 0).astype(int)

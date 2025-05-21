@@ -11,7 +11,8 @@
             "figures": "~/Downloads/figures/",
             "tables": "~/Downloads/tables/",
             "dataframes": "~/Downloads/dataframes/",
-            "model_results": "~/Documents/MScEcon/Semester 2/Master Thesis I/Models/"
+            "model_results": "~/Documents/MScEcon/Semester 2/Master Thesis I/Models/",
+            "parquet_files": "~/Documents/MScEcon/Semester 2/Master Thesis I/Microsimulation/parquets"
         }
     }
 }

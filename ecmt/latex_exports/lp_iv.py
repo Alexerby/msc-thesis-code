@@ -7,24 +7,34 @@ from statsmodels.genmod.generalized_linear_model import GLM
 from statsmodels.genmod.families import Binomial
 from statsmodels.genmod.families.links import logit as logit_link, probit as probit_link
 
-from ecmt.helpers import load_config
+from misc.utility_functions import load_project_config
 
 # === CONFIGURATION ===
-config = load_config()
+config = load_project_config()
 models_results_dir = Path(config["paths"]["results"]["model_results"]).expanduser()
 save_dir = Path("/home/alexer/Documents/MScEcon/Semester 2/Master Thesis I/thesis/tables")
 
 # === INPUT & OUTPUT SELECTION ===
-logit_filename = "logit_model.pkl"
-probit_filename = "probit_model.pkl"
-latex_output_filename = "regression_table.tex"
+logit_filename = "iv_logit_model.pkl"
+probit_filename = "iv_probit_model.pkl"
+fs_filename = "first_stage_model.pkl"
+iv_resid_logit_pkl = models_results_dir / "iv_with_resid_logit.pkl"
+iv_resid_probit_pkl = models_results_dir / "iv_with_resid_probit.pkl"
 
-# === LOAD MODELS ===
+
+latex_output_filename = "iv_regression_table.tex"
+
+# === Get PKL files ===
 logit_pkl = models_results_dir / logit_filename
 probit_pkl = models_results_dir / probit_filename
+first_stage_pkl = models_results_dir / fs_filename
+
+# === LOAD MODELS FROM PKL ===
 
 result_logit = joblib.load(logit_pkl)
 result_probit = joblib.load(probit_pkl)
+result_iv_with_resid_logit = joblib.load(iv_resid_logit_pkl)
+result_iv_with_resid_probit = joblib.load(iv_resid_probit_pkl)
 
 # === MARGINAL EFFECTS ===
 marg_eff_logit = result_logit.get_margeff(at='overall').summary_frame()
@@ -55,6 +65,7 @@ def add_stars(est, pval):
     else:
         return f"{est:.3f}"
 
+
 def extract_row(name, pretty_name):
     try:
         probit_coef = result_probit.params[name]
@@ -75,12 +86,31 @@ def extract_row(name, pretty_name):
     except KeyError:
         return f"{pretty_name} & & & & & & & & \\\\"
 
+
+
+def get_first_stage_stats(pkl_file):
+    model = joblib.load(pkl_file)
+    r2 = np.round(model.rsquared, 2)
+    f_stat = np.round(model.fvalue, 2)
+    return r2, f_stat
+
+
+def extract_dwh_stat(model, resid_var_name="theoretical_bafög_resid"):
+    if resid_var_name not in model.params:
+        return None, None, None  # residuals not included
+    
+    coef = model.params[resid_var_name]
+    se = model.bse[resid_var_name]
+    pval = model.pvalues[resid_var_name]
+    return coef, se, pval
+
+
 # === VARIABLE CATEGORIES ===
 categories = {
     "Main explanatory variables": [
         ("joint_income_log", "Parental Income$^\dagger$"),
         ("gross_monthly_income_log", "Student income$^\dagger$"),
-        ("theoretical_bafög", "Simulated BAföG amount"),
+        ("theoretical_bafög_hat", "Simulated BAföG amount (IV)$^{\circ}$")
     ],
     "Demographics": [
         ("age", "Age"),
@@ -99,20 +129,27 @@ categories = {
 
 # === R² AND SAMPLE SIZE ===
 r2_logit = compute_pseudo_r2(result_logit, GLM, logit_link())
-r2_probit = compute_pseudo_r2(result_probit, GLM, probit_link())
+r2_probit = compute_pseudo_r2(result_probit, GLM, probit_link()) 
+fs_r2, fs_fstat = get_first_stage_stats(first_stage_pkl)
 n_obs = int(result_logit.nobs)
+
+dwh_logit_coef, dwh_logit_se, dwh_logit_pval = extract_dwh_stat(result_iv_with_resid_logit)
+dwh_probit_coef, dwh_probit_se, dwh_probit_pval = extract_dwh_stat(result_iv_with_resid_probit)
+
+print(dwh_logit_coef, dwh_logit_pval)
+print(dwh_probit_coef, dwh_probit_pval)
 
 # === WRITE LATEX TABLE ===
 out_path = save_dir / latex_output_filename
 with open(out_path, "w") as f:
     f.write("\\begin{table}\n")
-    f.write("\\caption{$\\Pr(\\mathrm{NTU} = 1 \\mid \\mathbf{X})$}\n")
+    f.write("\\caption{Instrumental Variable Estimation: $\\Pr(\\mathrm{NTU} = 1 \\mid \\mathbf{X}, \\widehat{\\text{Simulated BAföG}})$}\n")
     f.write("\\renewcommand{\\arraystretch}{1.25}\n")
     f.write("\\footnotesize\n")
     f.write("\\centering\n")
     f.write("\\begin{tabular}{lllllllll}\n")
     f.write("\\toprule\n")
-    f.write(" & \\multicolumn{4}{c}{Logit} & \\multicolumn{4}{c}{Probit} \\\\\n")
+    f.write(" & \\multicolumn{4}{c}{IV Logit} & \\multicolumn{4}{c}{IV Probit} \\\\\n")
     f.write("\\cmidrule(lr){2-5} \\cmidrule(lr){6-9}\n")
     f.write(" & Coef. & SE & AME & SE & Coef. & SE & AME & SE \\\\\n")
     f.write("\\midrule\n")
@@ -125,11 +162,23 @@ with open(out_path, "w") as f:
 
     f.write(f"Pseudo $R^2$ & \\multicolumn{{4}}{{l}}{{{r2_logit:.4f}}} & \\multicolumn{{4}}{{l}}{{{r2_probit:.4f}}} \\\\\n")
     f.write(f"Observations & \\multicolumn{{8}}{{l}}{{{n_obs}}} \\\\\n")
+    f.write("\\midrule\n")
+    f.write(f"First-stage $R^2$ & \\multicolumn{{8}}{{l}}{{{fs_r2}}} \\\\\n")
+    f.write(f"First-stage F-stat & \\multicolumn{{8}}{{l}}{{{fs_fstat}}} \\\\\n")
     f.write("\\bottomrule\n")
     f.write("\\end{tabular}\n")
-    f.write("\\caption*{Logit and Probit Coefficients and Average Marginal Effects}\n")
-    f.write("\\label{tab:logit_probit_results}\n")
-    f.write("\\caption*{\\small{Notes: Significance levels: $^{{*}} p < 0.1$, $^{{**}} p < 0.05$, $^{{***}} p < 0.01$. Robust standard errors clustered at the student level. $^\\dagger$ Indicates that the variable has been log-transformed.}}\n")
+    f.write("\\caption*{IV Logit and IV Probit Coefficients and Average Marginal Effects}\n")
+    f.write("\\label{tab:iv_logit_probit_results}\n")
+
+
+    notes = (
+        f"\\caption*{{\\small{{Notes: Significance levels: $^{{*}} p < 0.1$, $^{{**}} p < 0.05$, $^{{***}} p < 0.01$. "
+        f"Robust standard errors clustered at the student level. $^\\dagger$ Indicates log-transformed variables. "
+        f"Durbin-Wu-Hausman test residual coef (Logit) = {dwh_logit_coef:.4f} (p = {dwh_logit_pval:.3f}), "
+        f"residual coef (Probit) = {dwh_probit_coef:.4f} (p = {dwh_probit_pval:.3f}). $\circ$ Indicates per 100 EUR.}}}}"
+    )
+    f.write(notes + "\n")
+
     f.write("\\end{table}\n")
 
 print(f"✅ Exported LaTeX table to {out_path}")
