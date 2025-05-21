@@ -55,7 +55,7 @@ ax.plot(ntu_df["syear"], ntu_df["upper_bound"], '--', color='darkgray', label='U
 
 # Axis labels and formatting
 ax.set_xlabel("Year")
-ax.set_ylabel("Pr(NTU)")
+ax.set_ylabel("Pr(NTU = 1 | M = 1)")
 ax.set_ylim(0.3, 0.8)
 ax.set_xticks(ntu_df["syear"])
 ax.grid(True, axis='y', linestyle='--', alpha=0.6)
