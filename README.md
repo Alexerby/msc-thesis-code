@@ -40,26 +40,11 @@ This pipeline supports research on take-up behavior, distributional impacts, and
    pip install -r requirements.txt
    ```
 
-3. **Configure paths and toggles**:
-   Edit `config/config.json`:
-
-   ```json
-   {
-     "paths": {
-       "data": {
-         "soep": "~/Data/SOEP-Core/CSV/soepdata/",
-         "destatis": "~/Data/Destatis/",
-         "public_data": "~/Code/msc-thesis-v4/public_data/",
-         "soep_cached": "~/Data/SOEP-Core_cached/"
-       },
-       "results": {
-         "figures": "~/Downloads/figures/",
-         "tables": "~/Downloads/tables/",
-         "dataframes": "~/Downloads/dataframes/"
-       }
-     }
-   }
-   ```
+3. **Configure paths and toggles**  
+Edit the [`config/config.template.json`](config/config.template.json) file to create your own `config/config.json` with local paths:
+```bash
+cp config/config.template.json config/config.json
+```
 
 4. **Run the simulation and export**:
 
