@@ -53,12 +53,6 @@ Edit the [`config/config.template.json`](config/config.template.json) file to cr
    python3 -m export.export_parquet
    ```
 
-5. **Generate descriptive outputs**:
-
-   ```bash
-   python -m descriptives.core.run
-   ```
-
 ---
 
 ## 📁 Project Structure
@@ -68,6 +62,7 @@ msc-thesis-v4/
 ├── pipeline/            # Core BAföG simulation logic
 ├── descriptives/        # Summary statistics, subgroup analysis
 ├── export/              # Excel and Parquet exporters
+├── ecmt/                # Econometric modelling
 ├── loaders/             # SOEP and registry data loading
 ├── misc/                # Utility helpers
 ├── config/              # Configuration files
@@ -143,21 +138,6 @@ MIT License — free to use, modify, and distribute with attribution. See `LICEN
 * **Alexander Eriksson Byström**
   [@alexerby](https://github.com/alexerby)
 * **Maria Sól Antonsdottír**
-
----
-
-## 🙌 Acknowledgments
-
-* DIW Berlin for SOEP-Core data access
-* BMBF and official BAföG publications
-
----
-
-## 🔄 Pipeline Overview
-
-![BAföG Pipeline Diagram](readme-assets/pipeline_overview.png)
-
-*Figure: Modular structure and data flow in the BAföG microsimulation pipeline*
 
 ---
 
