@@ -1,0 +1,18 @@
+{
+    "paths": {
+        "data": {
+            "soep": "/path/to/soep_csv_folder/",
+            "soep_raw": "/path/to/soep/raw_csv_folder/",
+            "destatis": "/path/to/destatis/",
+            "public_data": "/path/to/public/data/",
+            "soep_cached": "/path/to/soep/cached/"
+        },
+        "results": {
+            "figures": "/path/to/output/figures/",
+            "tables": "/path/to/output/tables/",
+            "dataframes": "/path/to/output/dataframes/",
+            "model_results": "/path/to/model/results/",
+            "parquet_files": "/path/to/parquet/files/"
+        }
+    }
+}
