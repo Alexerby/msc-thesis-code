@@ -40,7 +40,6 @@ def create_dataframe(
     # drop any rows where received=1 but reported=0
     # out = drop_reported_bafog_inconsistencies(out)
     out = clean_bafög_columns(out)
-    # out = drop_zero_excess_income_par(out)
 
     out = add_weight_col(out, phrf_df=data.phrf)
     out = merge_ffill(out, data.pl, "plh0253")

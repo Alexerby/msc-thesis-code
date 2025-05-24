@@ -171,7 +171,7 @@ f_pval = result_lpm.f_pvalue
 out_path = save_dir / latex_output_filename
 with open(out_path, "w") as f:
     f.write("\\begin{table}\n")
-    f.write("\\caption{$\\Pr(\\mathrm{NTU} = 1 \\mid \\mathbf{X})$}\n")
+    f.write("\\caption*{$\\Pr(\\mathrm{NTU} = 1 \\mid \\mathbf{X})$}\n")
     f.write("\\renewcommand{\\arraystretch}{1.25}\n")
     f.write("\\centering\n")
     f.write("\\begin{tabular}{lccccc}\n")
@@ -194,15 +194,15 @@ with open(out_path, "w") as f:
 
     # Summary stats: one column for label, rest filled to align
     f.write(f"McFadden Pseudo $R^2$ & \\multicolumn{{2}}{{l}}{{{r2_mcfadden_logit:.2f}}} & \\multicolumn{{2}}{{l}}{{{r2_mcfadden_probit:.2f}}} & \\\\\n")
-    f.write(f"Cox and Snell Pseudo $R^2$ & \\multicolumn{{2}}{{l}}{{{r2_cs_logit:.2f}}} & \\multicolumn{{2}}{{l}}{{{r2_cs_probit:.2f}}} & \\\\\n")
-    f.write(f"Nagelkerke Pseudo $R^2$ & \\multicolumn{{2}}{{l}}{{{r2_nagelkerke_logit:.2f}}} & \\multicolumn{{2}}{{l}}{{{r2_nagelkerke_probit:.2f}}} & \\\\\n")
+    # f.write(f"Cox and Snell Pseudo $R^2$ & \\multicolumn{{2}}{{l}}{{{r2_cs_logit:.2f}}} & \\multicolumn{{2}}{{l}}{{{r2_cs_probit:.2f}}} & \\\\\n")
+    # f.write(f"Nagelkerke Pseudo $R^2$ & \\multicolumn{{2}}{{l}}{{{r2_nagelkerke_logit:.2f}}} & \\multicolumn{{2}}{{l}}{{{r2_nagelkerke_probit:.2f}}} & \\\\\n")
     f.write(f"Likelihood Ratio Test & \\multicolumn{{2}}{{l}}{{{lr_stat_logit:.2f} (p = {lr_pval_logit:.2f})}} & \\multicolumn{{2}}{{l}}{{{lr_stat_probit:.2f} (p = {lr_pval_probit:.2f})}} & \\\\\n")
     f.write(f"Adjusted $R^2$ & & & & & {r2_lpm_adj:.2f} \\\\\n")
     f.write(f"F-statistic & & & & & {f_stat:.1f} (p = {f_pval:.2f}) \\\\\n")
     f.write(f"Observations & \\multicolumn{{5}}{{l}}{{{n_obs}}} \\\\\n")
     f.write("\\bottomrule\n")
     f.write("\\end{tabular}\n")
-    f.write("\\caption*{Logit, Probit, and LPM (Linear Probability Model) coefficients. Logit and Probit also report average marginal effects. Standard errors are in parentheses. The LPM is estimated via OLS with MacKinnon and White (1985) robust (HC3) standard errors.}\n")
+    f.write("\\caption{Logit, Probit, and LPM (Linear Probability Model) coefficients. Logit and Probit also report average marginal effects. Standard errors are in parentheses. The LPM is estimated via OLS with MacKinnon and White (1985) robust (HC3) standard errors.}\n")
     f.write("\\label{tab:logit_probit_lpm_results}\n")
     f.write("\\caption*{\\small{Notes: Significance levels: $^{{*}} p < 0.1$, $^{{**}} p < 0.05$, $^{{***}} p < 0.01$. Robust standard errors clustered at the student level. $\circ$ Indicates per 100 EUR.}}\n")
     f.write("\\end{table}\n")

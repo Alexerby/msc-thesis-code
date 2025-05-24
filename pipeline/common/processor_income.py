@@ -61,6 +61,7 @@ def merge_income(
         how="inner"
     )
 
+
     return out
 
 
