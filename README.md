@@ -6,18 +6,18 @@ This pipeline supports research on take-up behavior, distributional impacts, and
 
 ---
 
-## ⚙️ Features
+## Features
 
-* 📦 **Modular architecture**: clear separation of loading, calculation, filtering, and exporting stages.
-* 🧮 **Eligibility engine**: simulates BAföG entitlements based on current legal statutes.
-* 🧲 **Eligibility engine**: simulates BAföG entitlements based on current legal statutes.
-* 📊 **Descriptive statistics**: supports subgroup analysis and conditional probability reporting.
-* 📤 **Export options**: export results in Excel and Parquet formats.
-* 🔧 **Fully configurable**: paths and parameters set via `config/config.json`.
+*  **Modular architecture**: clear separation of loading, calculation, filtering, and exporting stages.
+*  **Eligibility engine**: simulates BAföG entitlements based on current legal statutes.
+*  **Eligibility engine**: simulates BAföG entitlements based on current legal statutes.
+*  **Descriptive statistics**: supports subgroup analysis and conditional probability reporting.
+*  **Export options**: export results in Excel and Parquet formats.
+*  **Fully configurable**: paths and parameters set via `config/config.json`.
 
 ---
 
-## 🧰 Requirements
+## Requirements
 
 * Python 3.10+
 * Dependencies listed in `requirements.txt`
@@ -25,7 +25,7 @@ This pipeline supports research on take-up behavior, distributional impacts, and
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 1. **Clone the repository**:
 
@@ -55,7 +55,7 @@ Edit the [`config/config.template.json`](config/config.template.json) file to cr
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 msc-thesis-v4/
@@ -73,7 +73,7 @@ msc-thesis-v4/
 
 ---
 
-## 📊 Public Datasets
+## Public Datasets
 
 All policy inputs live in `public_data/`. These drive the simulation logic.
 
@@ -105,7 +105,7 @@ All policy inputs live in `public_data/`. These drive the simulation logic.
 
 ---
 
-## 🗂️ Configuration
+## Configuration
 
 Centralized configuration via `config/config.json`. Define:
 
@@ -114,7 +114,7 @@ Centralized configuration via `config/config.json`. Define:
 * Scenario-specific settings
 
 ---
-## 📋 Data and Legal Sources
+## Data and Legal Sources
 
 The project is based on:
 
@@ -127,13 +127,13 @@ The project is based on:
 
 ---
 
-## 🔖 License
+## License
 
 MIT License — free to use, modify, and distribute with attribution. See `LICENSE` for terms.
 
 ---
 
-## 👤 Authors
+## Authors
 
 * **Alexander Eriksson Byström**
   [@alexerby](https://github.com/alexerby)
@@ -141,12 +141,12 @@ MIT License — free to use, modify, and distribute with attribution. See `LICEN
 
 ---
 
-## 📄 Related Thesis
+## Related Thesis
 
 This project supports the thesis:
 
 ***Unclaimed Aid in the German Student Aid System***
-*A Microsimulation of BAföG Eligibility and Non-Take-Up*
-📄 [Thesis LaTeX source](https://github.com/Alexerby/master-thesis-tex)
+*A Microsimulation of BAföG Eligibility and Non-Take-Up* 
+[Thesis LaTeX source](https://github.com/Alexerby/master-thesis-tex).
 
 Includes detailed methodology, data sources, and empirical findings.
