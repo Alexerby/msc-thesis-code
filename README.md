@@ -10,7 +10,6 @@ This pipeline supports research on take-up behavior, distributional impacts, and
 
 *  **Modular architecture**: clear separation of loading, calculation, filtering, and exporting stages.
 *  **Eligibility engine**: simulates BAföG entitlements based on current legal statutes.
-*  **Eligibility engine**: simulates BAföG entitlements based on current legal statutes.
 *  **Descriptive statistics**: supports subgroup analysis and conditional probability reporting.
 *  **Export options**: export results in Excel and Parquet formats.
 *  **Fully configurable**: paths and parameters set via `config/config.json`.
