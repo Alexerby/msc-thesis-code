@@ -41,8 +41,8 @@ This pipeline supports research on take-up behavior, distributional impacts, and
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/your-username/msc-thesis-v4.git
-   cd msc-thesis-v4
+   git clone https://github.com/your-username/msc-thesis-code.git
+   cd msc-thesis-code
    ```
 
 2. **Install dependencies**:
@@ -69,7 +69,7 @@ Edit the [`config/config.template.json`](config/config.template.json) file to cr
 ## Project Structure
 
 ```
-msc-thesis-v4/
+msc-thesis-code/
 ├── pipeline/            # Core BAföG simulation logic
 ├── descriptives/        # Summary statistics, subgroup analysis
 ├── export/              # Excel and Parquet exporters
