@@ -1,3 +1,15 @@
+## About This Code
+
+This repository contains the code used in the research paper:
+
+**"Thanks, but No Thanks: A Microsimulation of BAföG Eligibility and Non-Take-Up"**
+Published by DIW Berlin in the SOEPpapers series (2025, No. 1226).
+📄 [Read the full paper here](https://www.diw.de/de/diw_01.c.962222.de/publikationen/soeppapers/2025_1226/thanks__but_no_thanks__a_microsimulation_of_bafoeg_eligibility_and_non-take-up.html)
+
+The code implements a microsimulation model to estimate eligibility for BAföG (Germany’s federal student grant program) and to analyze the non-take-up of these benefits using survey data.
+
+---
+
 ## BAföG Microsimulation Pipeline
 
 A modular Python pipeline for simulating theoretical BAföG (student financial aid) entitlements in Germany. Built using SOEP-Core v39, it estimates eligibility, computes expected awards, and generates descriptive statistics for analysis and policy research.
